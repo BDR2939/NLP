@@ -39,7 +39,8 @@ def remove_duplicate_list(list1):
 def list_of_list_2_single_list(list1):
     return [item for sublist in list1 for item in sublist]
 
-
+global languages_list, columns_list, data_files, start_token, end_token, vocabulary
+global test_files
 data_files = {'en_df': 'nlp-course/lm-languages-data-new/en.csv',
               'es_df': 'nlp-course/lm-languages-data-new/es.csv',
               'fr_df': 'nlp-course/lm-languages-data-new/fr.csv',
@@ -60,9 +61,19 @@ data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
               'pt_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\pt.csv',
               'tl_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\tl.csv'}
 
+
+import glob
+test_folder = r'C:\MSC\NLP2\nlp-course\lm-languages-data-new'
+test_csv_files =  glob.glob(test_folder + '\\*.csv')
+test_files =  {}
+for i_file in test_csv_files:
+    file_name_with_ending = os.path.basename(test_csv_files[0])
+    file_name = os.path.splitext(file_name_with_ending)[0]
+    test_files[file_name] = [i_file]
+languages_list = list(data_files.keys())
+
 start_token = '↠'
 end_token = '↞'
-global columns_list
 """
 **Part 1**
 
@@ -82,10 +93,6 @@ def convert_data_frame_2_token_list(index, value):
     current_df_tokens = list(set(list_of_list_2_single_list(current_df_tokens))) 
     del current_df
     return current_df_tokens                                          
-
-
-
-
 def preprocess(data_files):
     """
     data frame is table from 2 columns:
@@ -99,12 +106,16 @@ def preprocess(data_files):
             columns_list = df.columns.to_list()
         for text in df[columns_list[-1]].values:
             tokens.extend(list(text))
-    return list(set(tokens))import time
-s = time.time()
-vocabulary = preprocess(data_files)
-t = (time.time() - s)
+    return list(set(tokens))
 
-a=5
+
+
+import time
+# s = time.time()
+# vocabulary = preprocess(data_files)
+# t = (time.time() - s)
+
+# a=5
 
 
 """
@@ -185,9 +196,9 @@ def lm(n, vocabulary, data_file_path, add_one):
 
     return lm_dict
 
-n = 2
-test_dict = lm(n, vocabulary, data_files['en_df'], False)
-a=5
+# n = 2
+# test_dict = lm(n, vocabulary, data_files['en_df'], False)
+# a=5
 """
 **Part 3**
 
@@ -216,10 +227,10 @@ def eval(n, model, data_file):
               second_letter_prob = i_letter_model[i_letter[1]]
               entropy += -np.log2(second_letter_prob)
           else:
-              entropy += 0
+              entropy += 1e-8
   
       else:
-          entropy += 0
+          entropy += 1e-8
   entropy = entropy/n_gram.__len__()
   perplexity_score = 2**(entropy)
 
@@ -235,7 +246,7 @@ def eval(n, model, data_file):
   return perplexity_score
 
 
-eval(n,test_dict, data_files['en_df'])
+# eval(n,test_dict, data_files['en_df'])
 
 
 
@@ -250,17 +261,47 @@ This function should return a pandas DataFrame with columns [en ,es, fr, in, it,
 and every row should be labeled with one of the languages. Then, the values are the relevant perplexity values.
 """  
 
+def match(n, add_one, data_files):
+    # n - the n-gram to use for creating n-gram models
+    # add_one - use add_one smoothing or not
+    model_dict = {}
+    result_dict = {}
+    vocabulary = preprocess(data_files)
+    for i_language_model in languages_list:
+        
+        i_model = lm(n, vocabulary, data_files[i_language_model], add_one)
+        model_dict[i_language_model] = i_model
+        result_dict[i_language_model] = {}
 
-def match(n, add_one):
-  # n - the n-gram to use for creating n-gram models
-  # add_one - use add_one smoothing or not
-
-  #TODO
-  return
+        for i_language_test in languages_list:
+            i_language_model_i_score = eval(n, i_model, data_files[i_language_test])
+            result_dict[i_language_model][i_language_test] = i_language_model_i_score
+        print('summary for '+ i_language_model +' model perlexity score for each language:\n')
+        print(pd.DataFrame(result_dict))
+    #TODO
+    return result_dict
   
-def run_match():
-  #TODO
-  return 
+    
+  
+def run_match(data_files):
+    match_dict = {}
+    for n in range(1,5):
+        match_dict[n] = {}
+        add_one = True
+        match_dict[n][add_one] = match(n, add_one, data_files)
+        add_one = False
+        match_dict[n][add_one] = match(n, add_one, data_files)
+
+    return match_dict
+
+
+def classify(data_files):
+    # TODO
+    match_dict  = run_match(data_files)
+    return match_dict
+clasification_result = classify(data_files)
+
+
 
 """
 **Part 5**
