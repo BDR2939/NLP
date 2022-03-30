@@ -82,6 +82,10 @@ def convert_data_frame_2_token_list(index, value):
     current_df_tokens = list(set(list_of_list_2_single_list(current_df_tokens))) 
     del current_df
     return current_df_tokens                                          
+
+
+
+
 def preprocess(data_files):
     """
     data frame is table from 2 columns:
@@ -95,11 +99,7 @@ def preprocess(data_files):
             columns_list = df.columns.to_list()
         for text in df[columns_list[-1]].values:
             tokens.extend(list(text))
-    return list(set(tokens))
-
-
-
-import time
+    return list(set(tokens))import time
 s = time.time()
 vocabulary = preprocess(data_files)
 t = (time.time() - s)
@@ -238,6 +238,8 @@ def eval(n, model, data_file):
 eval(n,test_dict, data_files['en_df'])
 
 
+
+
 """
 **Part 4**
 
@@ -256,6 +258,9 @@ def match(n, add_one):
   #TODO
   return
   
+def run_match():
+  #TODO
+  return 
 
 """
 **Part 5**
@@ -265,9 +270,6 @@ and print the 8 tables to this notebook, one after another.
 """
 
 
-def run_match():
-  #TODO
-  return 
 run_match()
 
 
