@@ -61,6 +61,8 @@ data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
               'pt_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\pt.csv',
               'tl_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\tl.csv'}
 
+data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
+              'es_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\es.csv'}
 
 import glob
 test_folder = r'C:\MSC\NLP2\nlp-course\lm-languages-data-new'
@@ -71,7 +73,7 @@ for i_file in test_csv_files:
     file_name = os.path.splitext(file_name_with_ending)[0]
     test_files[file_name] = [i_file]
 languages_list = list(data_files.keys())
-
+# languages_list = languages_list[0:2]
 start_token = '↠'
 end_token = '↞'
 """
@@ -147,6 +149,7 @@ def tweets_to_text(data_file_path, n):
     columns_list = df.columns.to_list()
     tweets_list = df[columns_list[-1]].apply(lambda x: start_token + x + end_token).values
     text = ''.join(tweets_list)
+    text = text[0:100] # for debug
     text = start_token * (n-1) + text + end_token * (n-1)
 
     return text
@@ -205,46 +208,34 @@ def lm(n, vocabulary, data_file_path, add_one):
 Write a function *eval* that returns the perplexity of a model (dictionary) running over a given data file.
 """
 def eval(n, model, data_file):
-  # n - the n-gram that you used to build your model (must be the same number)
-  # model - the dictionary (model) to use for calculating perplexity
-  # data_file - the tweets file that you wish to claculate a perplexity score for
-  
-  # read file
-  text = tweets_to_text(data_file, n)
-  
-  # Extract n - 1 length substrings
-  # n_1_gram = [text[i: i + n-1] for i in range(len(text) - n-1)]
+    # n - the n-gram that you used to build your model (must be the same number)
+    # model - the dictionary (model) to use for calculating perplexity
+    # data_file - the tweets file that you wish to claculate a perplexity score for
 
-  # Extract n length substrings
-  n_gram = [text[i: i + n] for i in range(len(text) - n)]
-  
-  model_keys = model.keys()
-  entropy = 0 
-  for i_letter in n_gram:
-      if i_letter[0] in model_keys: 
-          i_letter_model = model[i_letter[0]]
-          if i_letter[1] in i_letter_model.keys():
-              second_letter_prob = i_letter_model[i_letter[1]]
-              entropy += -np.log2(second_letter_prob)
-          else:
+    # read file
+    if os.path.exists(data_file):
+        text = tweets_to_text(data_file, n)
+    else:
+        text = data_file
+    # Extract n length substrings
+    n_gram = [text[i: i + n] for i in range(len(text) - n)]
+
+    model_keys = model.keys()
+    entropy = 0 
+    for i_letter in n_gram:
+        if i_letter[0] in model_keys: 
+            i_letter_model = model[i_letter[0]]
+            if i_letter[1] in i_letter_model.keys():
+                second_letter_prob = i_letter_model[i_letter[1]]
+                entropy += -np.log2(second_letter_prob)
+            else:
+                entropy += 0
+
+        else:
               entropy += 0
-  
-      else:
-          entropy += 0
-  entropy = entropy/n_gram.__len__()
-  perplexity_score = 2**(entropy)
-
-  # base model run on the senstence
-  # 1. 
-  
-  
-  # data_files {'file' : data_file}
-  # vocabulary = preprocess(data_files)
-  # # model = lm(n, vocabulary, data_file, False)
-  
-  # TODO
-  return perplexity_score
-
+    entropy = entropy/n_gram.__len__()
+    perplexity_score = 2**(entropy)
+    return perplexity_score
 
 # eval(n,test_dict, data_files['en_df'])
 
@@ -276,34 +267,58 @@ def match(n, add_one, data_files):
         for i_language_test in languages_list:
             i_language_model_i_score = eval(n, i_model, data_files[i_language_test])
             result_dict[i_language_model][i_language_test] = i_language_model_i_score
-    print('summary for '+ i_language_model +' model perlexity score for each language:\n')
+    print('summary for matching (add_one = '+ str(add_one) +') model perlexity score per model and test language :\n')
     perlexity_df = pd.DataFrame(result_dict)
     print(perlexity_df)
     #TODO
-    return perlexity_df, model_dict
-  
+    return perlexity_df, model_dict  
     
   
 def run_match(data_files):
-    match_dict = {}
-    pr
-    for n in range(2,5):
-        match_dict[n] = {}
+    full_model_dict = {}
+    for n in range(2,3):
+        full_model_dict[n] = {}
         add_one = True
         perlexity_df, model_dict = match(n, add_one, data_files)
-        match_dict[n][add_one] = model_dict 
+        full_model_dict[n][add_one] = model_dict 
         add_one = False
         perlexity_df, model_dict = match(n, add_one, data_files)
-        match_dict[n][add_one] = model_dict
-    return match_dict
+        full_model_dict[n][add_one] = model_dict
+    return full_model_dict
+def match_test(n, model_dict, data_file_path, add_one):
+    # n - the n-gram to use for creating n-gram models
+    # add_one - use add_one smoothing or not
+    data_file_path = r"C:\MSC\NLP2\nlp-course\lm-languages-data-new\test.csv"
+    senstences_list = pd.read_csv(data_file_path)['tweet_text'].to_list()
+    lines = [] 
+    result_dict = {}
+    for i_language_model in languages_list:
+        i_model = model_dict[n][add_one][i_language_model]
+        result_dict[i_language_model] = {}
+        
+        for i_test_senstence in senstences_list:
+            i_sentence_model_i_score = eval(n, i_model, i_test_senstence)
+            result_dict[i_language_model][i_test_senstence] = i_sentence_model_i_score
+    # print('summary for '+ i_language_model +' model perlexity score for each language:\n')
+    perlexity_df = pd.DataFrame(result_dict)
+    print(perlexity_df)
+    #TODO
+    return perlexity_df
 
-def classify(data_files):
+
+def classify(n, model_dict, data_file_path, add_one):
     # TODO
-    match_dict  = run_match(data_files)
+    match_dict  = match_test(n, model_dict, data_file_path, add_one)
     return match_dict
-clasification_result = classify(data_files)
 
 
+
+
+model_dict = run_match(data_files)
+
+data_file_path = r"C:\MSC\NLP2\nlp-course\lm-languages-data-new\test.csv"
+clasification_result = classify(2, model_dict, data_file_path, False)
+    
 
 """
 **Part 5**
