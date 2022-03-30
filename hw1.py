@@ -179,14 +179,14 @@ def lm(n, vocabulary, data_file_path, add_one):
                 val = int(counter_obj_n_gram[key_1]) / int(counter_obj_n_1_gram[key])
                 inner_dict[key_1[-1]] = val
                 sum_vals += val
-            print(sum_vals)
-            print(sum(list(inner_dict.values())))
+            #print(sum_vals)
+            #print(sum(list(inner_dict.values())))
         lm_dict[key] = inner_dict.copy()
 
     return lm_dict
 
-
-test_dict = lm(2, vocabulary, data_files['en_df'], False)
+n = 2
+test_dict = lm(n, vocabulary, data_files['en_df'], False)
 a=5
 """
 **Part 3**
@@ -197,9 +197,46 @@ def eval(n, model, data_file):
   # n - the n-gram that you used to build your model (must be the same number)
   # model - the dictionary (model) to use for calculating perplexity
   # data_file - the tweets file that you wish to claculate a perplexity score for
+  
+  # read file
+  text = tweets_to_text(data_file, n)
+  
+  # Extract n - 1 length substrings
+  # n_1_gram = [text[i: i + n-1] for i in range(len(text) - n-1)]
 
+  # Extract n length substrings
+  n_gram = [text[i: i + n] for i in range(len(text) - n)]
+  
+  model_keys = model.keys()
+  entropy = 0 
+  for i_letter in n_gram:
+      if i_letter[0] in model_keys: 
+          i_letter_model = model[i_letter[0]]
+          if i_letter[1] in i_letter_model.keys():
+              second_letter_prob = i_letter_model[i_letter[1]]
+              entropy += -np.log2(second_letter_prob)
+          else:
+              entropy += 0
+  
+      else:
+          entropy += 0
+  entropy = entropy/n_gram.__len__()
+  perplexity_score = 2**(entropy)
+
+  # base model run on the senstence
+  # 1. 
+  
+  
+  # data_files {'file' : data_file}
+  # vocabulary = preprocess(data_files)
+  # # model = lm(n, vocabulary, data_file, False)
+  
   # TODO
-  return 
+  return perplexity_score
+
+
+eval(n,test_dict, data_files['en_df'])
+
 
 """
 **Part 4**
