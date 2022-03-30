@@ -227,10 +227,10 @@ def eval(n, model, data_file):
               second_letter_prob = i_letter_model[i_letter[1]]
               entropy += -np.log2(second_letter_prob)
           else:
-              entropy += 1e-8
+              entropy += 0
   
       else:
-          entropy += 1e-8
+          entropy += 0
   entropy = entropy/n_gram.__len__()
   perplexity_score = 2**(entropy)
 
@@ -276,24 +276,26 @@ def match(n, add_one, data_files):
         for i_language_test in languages_list:
             i_language_model_i_score = eval(n, i_model, data_files[i_language_test])
             result_dict[i_language_model][i_language_test] = i_language_model_i_score
-        print('summary for '+ i_language_model +' model perlexity score for each language:\n')
-        print(pd.DataFrame(result_dict))
+    print('summary for '+ i_language_model +' model perlexity score for each language:\n')
+    perlexity_df = pd.DataFrame(result_dict)
+    print(perlexity_df)
     #TODO
-    return result_dict
+    return perlexity_df, model_dict
   
     
   
 def run_match(data_files):
     match_dict = {}
-    for n in range(1,5):
+    pr
+    for n in range(2,5):
         match_dict[n] = {}
         add_one = True
-        match_dict[n][add_one] = match(n, add_one, data_files)
+        perlexity_df, model_dict = match(n, add_one, data_files)
+        match_dict[n][add_one] = model_dict 
         add_one = False
-        match_dict[n][add_one] = match(n, add_one, data_files)
-
+        perlexity_df, model_dict = match(n, add_one, data_files)
+        match_dict[n][add_one] = model_dict
     return match_dict
-
 
 def classify(data_files):
     # TODO
