@@ -29,6 +29,12 @@ from joblib import Parallel, delayed
 from functools import partial
 import threading # you can use easier threading packages
 from collections import Counter
+from IPython.display import display
+
+def reorder_list(List, index_list):
+    return [List[i] for i in index_list]
+
+
 
 def string_split(word):
   return list(word)
@@ -61,8 +67,8 @@ data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
               'pt_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\pt.csv',
               'tl_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\tl.csv'}
 
-data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
-              'es_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\es.csv'}
+# data_files = {'en_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\en.csv',
+#               'es_df': r'C:\MSC\NLP2\nlp-course\lm-languages-data\es.csv'}
 
 import glob
 test_folder = r'C:\MSC\NLP2\nlp-course\lm-languages-data-new'
@@ -139,21 +145,24 @@ information to the dictionary and implement it.
 """
 
 #helper function
+#helper function
 def tweets_to_text(data_file_path, n):
     """
     data frame is table from 2 columns:
         1. tweet id
         2. tweet text
     """
-    df = pd.read_csv(data_file_path)
+    df = pd.read_csv(r''+ data_file_path)
+    debug = True
+    if debug == True:
+        df = df[0:100]
     columns_list = df.columns.to_list()
     tweets_list = df[columns_list[-1]].apply(lambda x: start_token + x + end_token).values
     text = ''.join(tweets_list)
-    text = text[0:100] # for debug
+    
     text = start_token * (n-1) + text + end_token * (n-1)
 
     return text
-
 def lm(n, vocabulary, data_file_path, add_one):
     # n - the n-gram to use (e.g., 1 - unigram, 2 - bigram, etc.)
     # vocabulary - the vocabulary list (which you should use for calculating add_one smoothing)
@@ -166,7 +175,7 @@ def lm(n, vocabulary, data_file_path, add_one):
     text = tweets_to_text(data_file_path, n)
 
     # Extract n - 1 length substrings
-    n_1_gram = [text[i: i + n-1] for i in range(len(text) - n-1)]
+    n_1_gram = [text[i: i + n-1] for i in range(len(text) - (n-1))]
     counter_obj_n_1_gram = dict(Counter(n_1_gram))
 
     # Extract n length substrings
@@ -193,12 +202,10 @@ def lm(n, vocabulary, data_file_path, add_one):
                 val = int(counter_obj_n_gram[key_1]) / int(counter_obj_n_1_gram[key])
                 inner_dict[key_1[-1]] = val
                 sum_vals += val
-            #print(sum_vals)
-            #print(sum(list(inner_dict.values())))
+
         lm_dict[key] = inner_dict.copy()
 
     return lm_dict
-
 # n = 2
 # test_dict = lm(n, vocabulary, data_files['en_df'], False)
 # a=5
@@ -223,22 +230,18 @@ def eval(n, model, data_file):
     model_keys = model.keys()
     entropy = 0 
     for i_letter in n_gram:
-        if i_letter[0] in model_keys: 
-            i_letter_model = model[i_letter[0]]
-            if i_letter[1] in i_letter_model.keys():
-                second_letter_prob = i_letter_model[i_letter[1]]
+        if i_letter[0:n-1] in model_keys: 
+            i_letter_model = model[i_letter[0:n-1]]
+            if i_letter[n-1] in i_letter_model.keys():
+                second_letter_prob = i_letter_model[i_letter[n-1]]
                 entropy += -np.log2(second_letter_prob)
             else:
                 entropy += 0
-
         else:
-              entropy += 0
-    entropy = entropy/n_gram.__len__()
+            entropy += 0
+    entropy = entropy/len(n_gram)
     perplexity_score = 2**(entropy)
     return perplexity_score
-
-# eval(n,test_dict, data_files['en_df'])
-
 
 
 
@@ -255,53 +258,62 @@ and every row should be labeled with one of the languages. Then, the values are 
 def match(n, add_one, data_files):
     # n - the n-gram to use for creating n-gram models
     # add_one - use add_one smoothing or not
-    model_dict = {}
     result_dict = {}
-    vocabulary = preprocess(data_files)
     for i_language_model in languages_list:
         
         i_model = lm(n, vocabulary, data_files[i_language_model], add_one)
-        model_dict[i_language_model] = i_model
         result_dict[i_language_model] = {}
 
         for i_language_test in languages_list:
             i_language_model_i_score = eval(n, i_model, data_files[i_language_test])
             result_dict[i_language_model][i_language_test] = i_language_model_i_score
-    print('summary for matching (add_one = '+ str(add_one) +') model perlexity score per model and test language :\n')
     perlexity_df = pd.DataFrame(result_dict)
-    print(perlexity_df)
-    #TODO
-    return perlexity_df, model_dict  
-    
-  
+    return perlexity_df      
+ 
 def run_match(data_files):
     full_model_dict = {}
-    for n in range(2,3):
-        full_model_dict[n] = {}
+    # for n in range(2,3):
+
+    for n in range(1,2):
         add_one = True
-        perlexity_df, model_dict = match(n, add_one, data_files)
-        full_model_dict[n][add_one] = model_dict 
+        perlexity_df = match(n, add_one, data_files)
+        print(f'n = {n}, add_one = {add_one}')
+        display(perlexity_df)
+
         add_one = False
-        perlexity_df, model_dict = match(n, add_one, data_files)
-        full_model_dict[n][add_one] = model_dict
-    return full_model_dict
+        perlexity_df = match(n, add_one, data_files)
+        print(f'n = {n}, add_one = {add_one}')
+        display(perlexity_df)
+    return 
+
 def match_test(n, model_dict, data_file_path, add_one):
     # n - the n-gram to use for creating n-gram models
     # add_one - use add_one smoothing or not
-    data_file_path = r"C:\MSC\NLP2\nlp-course\lm-languages-data-new\test.csv"
+    #data_file_path = r"C:\MSC\NLP2\nlp-course\lm-languages-data-new\test.csv"
     senstences_list = pd.read_csv(data_file_path)['tweet_text'].to_list()
+
     lines = [] 
     result_dict = {}
+
     for i_language_model in languages_list:
-        i_model = model_dict[n][add_one][i_language_model]
+        # i_model = model_dict[n][add_one][i_language_model]
         result_dict[i_language_model] = {}
-        
-        for i_test_senstence in senstences_list:
+        i_model = lm(n, vocabulary, data_files[i_language_model], add_one)
+
+        for i_test_senstence_idx in range(senstences_list.__len__()):
+            i_test_senstence = senstences_list[i_test_senstence_idx]
             i_sentence_model_i_score = eval(n, i_model, i_test_senstence)
-            result_dict[i_language_model][i_test_senstence] = i_sentence_model_i_score
+            result_dict[i_language_model][i_test_senstence_idx] = i_sentence_model_i_score
     # print('summary for '+ i_language_model +' model perlexity score for each language:\n')
     perlexity_df = pd.DataFrame(result_dict)
     print(perlexity_df)
+    perlexity_array = perlexity_df.to_numpy()
+    language_match_index = np.argmin(perlexity_array, axis=1)
+    language_match_list = reorder_list(languages_list, language_match_index)
+    perlexity_df['predict'] = language_match_index
+    perlexity_df['predict_language'] = language_match_list
+    print(perlexity_df)
+
     #TODO
     return perlexity_df
 
@@ -312,56 +324,26 @@ def classify(n, model_dict, data_file_path, add_one):
     return match_dict
 
 
+global vocabulary
 
+vocabulary = preprocess(data_files)
 
 model_dict = run_match(data_files)
 
 data_file_path = r"C:\MSC\NLP2\nlp-course\lm-languages-data-new\test.csv"
+
 clasification_result = classify(2, model_dict, data_file_path, False)
     
+y_true = pd.read_csv(data_file_path).get('label').to_list()
 
-"""
-**Part 5**
+y_true2 = list(map(lambda x: languages_list.index(x+'_df'),y_true))
+y_pred = clasification_result['predict'].to_list()
 
-Run match with *n* values 1-4, once with add_one and once without, 
-and print the 8 tables to this notebook, one after another.
-"""
+def calc_f1(y_true,y_pred ):
+    return f1_score(y_pred, y_pred,average="micro")
 
-
-run_match()
-
-
-
-"""
-**Part 6**
-
-Each line in the file test.csv contains a sentence and the language it belongs to. 
-Write a function that uses your language models to classify the correct language of each sentence.
-
-Important note regarding the grading of this section: this is an open question,
- where a different solution will yield different accuracy scores. any solution that is not trivial 
- (e.g. returning 'en' in all cases) will be excepted. 
- We do reserve the right to give bonus points to exceptionally good/creative solutions.
-"""
-def classify():
-    return 
-  # TODO
-clasification_result = classify()
-
-
-
-"""
-**Part 7**
-Calculate the F1 score of your output from part 6. 
-(hint: you can use https://scikit-learn.org/stable/modules/generated/sklearn.metrics.f1_score.html). 
-"""
-
-
-def calc_f1(result):
-    return 
   # TODO
 
-calc_f1(clasification_result)
-
+f_score_result = calc_f1(y_true,y_pred)
 
 
