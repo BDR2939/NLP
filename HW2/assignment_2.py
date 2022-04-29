@@ -12,13 +12,11 @@ This assignment is about training and evaluating a POS tagger with some real dat
 """
 
 import numpy as np
-import operator
-import nltk
-
-# !pip install conllutils
-import conllutils
 import  conllu 
-from conllu import parse
+from io import open
+from conllu import parse_incr
+from collections import defaultdict
+
 
 
 """**Part 1** (getting the data)
@@ -57,43 +55,56 @@ else:
     ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
 
 
-from conllutils import pipe
-
-
-
-from io import open
-from conllu import parse_incr
-
-from collections import defaultdict
-
 
 def read_conllu(path):
     "https://www.youtube.com/watch?v=lvJRFMvWtFI"
     # train data
-    lists_of_token_list  = 100000*[None]
+    list_of_words  = []
     idx = 0
     data_file = open(path, "r", encoding="utf-8")
     annotation = data_file.read()
     parse_annotation = conllu.parse(annotation)
-    data_dict= defaultdict(lambda: 100*['<>'])
-
-    for i_parse_annotation in parse_annotation:
+    data_dict = defaultdict(lambda : defaultdict(dict))
+    # item index
+    item_idx = 1
+    for item in parse_annotation:
         
+        # get text tokens
+        line_tokens = item.filter()
+        
+        
+        # get token
+        sentence_tokens = list(map(lambda x: x, line_tokens))
+        
+     
         # get meta data
-        metadata = parse_annotation[idx].metadata
+        metadata = item.metadata
+        text = metadata['text']
         
-        # need to thing about condition  
-        condition = metadata['text'].__len__()>1
-        if condition:
-           data_dict[idx]  = metadata
-        idx+=1
-    return data_dict
+        # token index 
+        for i_token in sentence_tokens:
+            
+            if 'lemma' in i_token.keys():
+                # get token line
+                word = i_token['lemma']
+                pos_tag =  i_token['upos']
+                list_of_words.append(word)
+                if not 'text' in  data_dict[item_idx].keys():
+                    data_dict[item_idx]['text'] = text
+
+                data_dict[item_idx][word] = pos_tag
+                
+
+            else:
+                continue
+        item_idx += 1
+
+    return data_dict, list_of_words
 
 
-train_list = read_conllu(ud_train)
-
-dev_list = read_conllu(ud_dev)
-test_list = read_conllu(ud_test)
+train_dict, train_list_of_word = read_conllu(ud_train)
+dev_dict, dev_list_of_word = read_conllu(ud_dev)
+test_dict, test_list_of_word  = read_conllu(ud_test)
     
     
 # train_file = 'en_ewt-ud-train.conllu'
@@ -114,7 +125,8 @@ test_list = read_conllu(ud_test)
 #     length = instance['form'].shape[0]
 #     pass
 
-
+import operator
+import nltk
 
 
 
