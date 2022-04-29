@@ -15,8 +15,11 @@ import numpy as np
 import operator
 import nltk
 
-!pip install conllutils
+# !pip install conllutils
 import conllutils
+import  conllu 
+from conllu import parse
+
 
 """**Part 1** (getting the data)
 
@@ -27,7 +30,7 @@ Please download it to your colab machine.
 
 """
 
-!git clone https://github.com/UniversalDependencies/UD_English-GUM
+# !git clone https://github.com/UniversalDependencies/UD_English-GUM
 
 """We will use the (train/dev/test) files:
 
@@ -43,7 +46,79 @@ You should write a code that reads the three datasets into memory. You may choos
 """
 
 # Your code goes here
+user = 'Or'
+if user == 'Or':
+    ud_dev = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-dev.conllu"
+    ud_train = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-train.conllu"
+    ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
+else:
+    ud_dev = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-dev.conllu"
+    ud_train = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-train.conllu"
+    ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
 
+
+from conllutils import pipe
+
+
+
+from io import open
+from conllu import parse_incr
+
+from collections import defaultdict
+
+
+def read_conllu(path):
+    "https://www.youtube.com/watch?v=lvJRFMvWtFI"
+    # train data
+    lists_of_token_list  = 100000*[None]
+    idx = 0
+    data_file = open(path, "r", encoding="utf-8")
+    annotation = data_file.read()
+    parse_annotation = conllu.parse(annotation)
+    data_dict= defaultdict(lambda: 100*['<>'])
+
+    for i_parse_annotation in parse_annotation:
+        
+        # get meta data
+        metadata = parse_annotation[idx].metadata
+        
+        # need to thing about condition  
+        condition = metadata['text'].__len__()>1
+        if condition:
+           data_dict[idx]  = metadata
+        idx+=1
+    return data_dict
+
+
+train_list = read_conllu(ud_train)
+
+dev_list = read_conllu(ud_dev)
+test_list = read_conllu(ud_test)
+    
+    
+# train_file = 'en_ewt-ud-train.conllu'
+# indexed_fields = {'sent_id', 's_type', 'text'}
+
+# p = pipe()
+# index = pipe().read_conllu(ud_train).pipe(p).create_index(fields=indexed_fields)
+# train_data = pipe().read_conllu(ud_train).pipe(p).to_instance(index).collect()
+
+
+# total_size = 10000
+# batch_size = 100
+
+# for batch in pipe(ud_train).stream(total_size).shuffle().batch(batch_size):
+#     # Update your model for the next batch of instances.
+#     instance = batch[0]
+#     # Instance values are indexed and stored in the NumPy arrays.
+#     length = instance['form'].shape[0]
+#     pass
+
+
+
+
+
+# ______________________________________________________________________________________________________________________________________
 """**Part 2**
 
 Write a class **simple_tagger**, with methods *train* and *evaluate*. The method *train* receives the data as a list of sentences, and use it for training the tagger. In this case, it should learn a simple dictionary that maps words to tags, defined as the most frequent tag for every word (in case there is more than one most frequent tag, you may select one of them randomly). The dictionary should be stored as a class member for evaluation.
@@ -55,10 +130,13 @@ The evaluation process is simply going word by word, querying the dictionary (cr
 
 class simple_tagger:
   def train(self, data):
-    # TODO
+      # TODO
+      return 
+    
   
   def evaluate(self, data):
-    # TODO
+      # TODO
+      return
 
 """**Part 3**
 
@@ -72,16 +150,20 @@ Additional guidance:
 
 class hmm_tagger:
   def train(self, data):
-    # TODO
+      # TODO
+
+      return 
 
   def evaluate(self, data):
-    # TODO
+      # TODO
+      return 
 
 # Viterbi
 def viterbi (observations, A, B, Pi):
-  #...
-
-  return best_sequence
+    best_sequence = None
+    #...
+    
+    return best_sequence
 
 # A simple example to run the Viterbi algorithm:
 #( Same as in presentation "NLP 3 - Tagging" on slide 35)
