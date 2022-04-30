@@ -194,30 +194,12 @@ unique_pos_list  = unique_pos.tolist()
 B = extract_ommision_matrix_B(train_df, unique_pos, unique_words)
 A = generate_transition_matrix_A(train_df, unique_pos, unique_words)
 
-a=5
-def sentences_from_df(df):
-    sentences = []
-    sentence_ind = 1
-    sentence = []
-
-    for i in range(df.shape[0]):
-        curr_sentence_ind = df.index[i][0]
-        if curr_sentence_ind != sentence_ind:
-            sentences.append(str.join(" ", sentence))
-            sentence_ind += 1
-            sentence = []
-        sentence.append(df.iloc[i, :]['w'])
-
-    return sentences
-
-
-sentences = sentences_from_df(train_df)
+pi_initial_matrix = np.ones([unique_pos.size,1])*(1/unique_pos.size)
 
 
 #     pass
 import operator
 import nltk
-
 
 
 # ______________________________________________________________________________________________________________________________________
@@ -230,15 +212,92 @@ The evaluation process is simply going word by word, querying the dictionary (cr
 
 """
 
+
+# helper functions
+
+def get_list_of_sentences(df):
+    number_of_sentences = df['w'].keys()[-1][0] # get the last sentence (s column) value === number of sentences in df
+    sentences = [df.loc[(i)]['w'].str.cat(sep=' ') for i in range(1, number_of_sentences + 1)]
+    return sentences
+
+
+def get_all_unique_words(df):
+    return df['w'].values.unique()
+
+
+def get_most_frequent_tag_per_word(df):
+    words_dict = dict(zip(df.w, df.x)) # this sets each word's value as as the most RECENT POS tag seen in data!
+
+    # therefore, we should override each word's value by its MOST FREQUENT POS tag:
+    for word, tag in words_dict.items():
+        words_dict[word] = (df[df['w'] == word]['p'].values.mode()[0])
+
+    return words_dict
+
+
+def get_most_frequent_tag_in_data(df):
+    # the "mode" of a list is the most likely value to appear (most frequent)
+    return df['p'].values.mode()[0]
+
+
 class simple_tagger:
-  def train(self, data):
-      # TODO
-      return 
+    def __init__(self):
+        self.dictionary = {} # "The dictionary should be stored as a class member for evaluation"
+        self.most_frequent_tag = None # For OOV (out of vocabulary, or unknown) words, the tagger should assign the most frequent tag in the entire training set (i.e., the mode)
+
+
+    def train(self, data):
+        self.dictionary = get_most_frequent_tag_per_word(data)
+        self.most_frequent_tag = get_most_frequent_tag_in_data(data)
+
+
+    def evaluate(self, data):
+        total_words_hits = 0
+        sentence_hits = 0 # number of sentences in which all words are correctly classified
+        number_of_words_with_duplicates = len(data['w'])
+        sentences = get_list_of_sentences(data)
+        
+        for i, sentence in enumerate(sentences, 1): # index starts at 1 because that's how the dataframe works
+            # check every word and sentence's accuracy
+            sentence_in_df = data.loc[(i)]
+            words = sentence.split()
+            words_hits = 0
+
+            for word in words:
+                actual_tag = sentence_in_df[sentence_in_df['w'] == word]['p'].values[0]
+                
+                if word in self.dictionary:
+                    predicted_tag = self.dictionary[word]
+                else:
+                    predicted_tag = self.most_frequent_tag
+                
+                if actual_tag == predicted_tag:
+                    words_hits += 1
+
+            total_words_hits += words_hits
+
+            if words_hits == len(words):
+                sentence_hits += 1
+
+        word_level_accuracy = round(total_words_hits / number_of_words_with_duplicates * 100, 4)
+        sentence_level_accuracy = round(sentence_hits / len(sentences) * 100, 4)
+        
+        return word_level_accuracy, sentence_level_accuracy
     
-  
-  def evaluate(self, data):
-      # TODO
-      return
+    
+tagger = simple_tagger()
+tagger.train(train_df)
+
+# https://piazza.com/class/klxc3m1tzqz2o8?cid=40 - "You should evaluate on the test and dev datasets separately. The train file is for training only"
+simple_tagger_word_level_accuracy_train, simple_tagger_sentence_level_accuracy_train = tagger.evaluate(train_df)
+simple_tagger_word_level_accuracy_test, simple_tagger_sentence_level_accuracy_test = tagger.evaluate(test_df)
+simple_tagger_word_level_accuracy_dev, simple_tagger_sentence_level_accuracy_dev = tagger.evaluate(dev_df)
+
+
+print(f'*train* data: word accuracy = {simple_tagger_word_level_accuracy_train} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_train} %')
+print(f'*test* data: word accuracy = {simple_tagger_word_level_accuracy_test} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_test} %')
+print(f'*dev* data: word accuracy = {simple_tagger_word_level_accuracy_dev} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_dev} %')
+
 
 """**Part 3**
 
