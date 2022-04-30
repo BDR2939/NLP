@@ -146,6 +146,8 @@ def extract_ommision_matrix_B(train_df, unique_pos, unique_words):
 
 
 def generate_transition_matrix_A(train_df, unique_pos, unique_words):
+    unique_words_list  = unique_words.tolist()
+    unique_pos_list  = unique_pos.tolist()
     A = np.zeros([len(unique_pos), len(unique_pos)])
     rol_train_df = train_df.copy()
     rol_train_df = rol_train_df.iloc[np.arange(-1, len(rol_train_df) - 1)].reset_index(drop=True)
@@ -183,23 +185,29 @@ dev_df = pd.read_csv(ud_dev)
 test_df = pd.read_csv(ud_test)
 
 
-### Create matrices
-pos_values = list(np.unique(train_df.loc[:, 'p'].values, return_counts=True))
-unique_words = np.unique(train_df.loc[:, 'w'].values)
-unique_pos= pos_values[0]
-unique_words_list  = unique_words.tolist()
-unique_pos_list  = unique_pos.tolist()
 
+def get_list_of_sentences_tag_lists(df):
+    word_index_array = df['i'].to_numpy()
+    initial_sentence_idx = np.where(word_index_array == 1)[0]
+    words_list = df['w'].to_list()
+    tag_list = df['p'].to_list()
 
-B = extract_ommision_matrix_B(train_df, unique_pos, unique_words)
-A = generate_transition_matrix_A(train_df, unique_pos, unique_words)
+    sentence_list  = initial_sentence_idx.size*['None']
+    sentence_tag_list  = initial_sentence_idx.size*['None']
 
-pi_initial_matrix = np.ones([unique_pos.size,1])*(1/unique_pos.size)
+    for sentence_idx in range(initial_sentence_idx.size-1):
+        curr_sentence =  words_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+        curr_tag =  tag_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
 
+        
+        sentence_list[sentence_idx] = curr_sentence
+        sentence_tag_list[sentence_idx] = curr_sentence
+
+    return sentence_list, sentence_tag_list
 
 #     pass
-import operator
-import nltk
+# import operator
+# import nltk
 
 
 # ______________________________________________________________________________________________________________________________________
@@ -215,88 +223,88 @@ The evaluation process is simply going word by word, querying the dictionary (cr
 
 # helper functions
 
-def get_list_of_sentences(df):
-    number_of_sentences = df['w'].keys()[-1][0] # get the last sentence (s column) value === number of sentences in df
-    sentences = [df.loc[(i)]['w'].str.cat(sep=' ') for i in range(1, number_of_sentences + 1)]
-    return sentences
+# def get_list_of_sentences(df):
+#     number_of_sentences = df['w'].keys()[-1][0] # get the last sentence (s column) value === number of sentences in df
+#     sentences = [df.loc[(i)]['w'].str.cat(sep=' ') for i in range(1, number_of_sentences + 1)]
+#     return sentences
 
 
-def get_all_unique_words(df):
-    return df['w'].values.unique()
+# def get_all_unique_words(df):
+#     return df['w'].values.unique()
 
 
-def get_most_frequent_tag_per_word(df):
-    words_dict = dict(zip(df.w, df.x)) # this sets each word's value as as the most RECENT POS tag seen in data!
+# def get_most_frequent_tag_per_word(df):
+#     words_dict = dict(zip(df.w, df.x)) # this sets each word's value as as the most RECENT POS tag seen in data!
 
-    # therefore, we should override each word's value by its MOST FREQUENT POS tag:
-    for word, tag in words_dict.items():
-        words_dict[word] = (df[df['w'] == word]['p'].values.mode()[0])
+#     # therefore, we should override each word's value by its MOST FREQUENT POS tag:
+#     for word, tag in words_dict.items():
+#         words_dict[word] = (df[df['w'] == word]['p'].values.mode()[0])
 
-    return words_dict
-
-
-def get_most_frequent_tag_in_data(df):
-    # the "mode" of a list is the most likely value to appear (most frequent)
-    return df['p'].values.mode()[0]
+#     return words_dict
 
 
-class simple_tagger:
-    def __init__(self):
-        self.dictionary = {} # "The dictionary should be stored as a class member for evaluation"
-        self.most_frequent_tag = None # For OOV (out of vocabulary, or unknown) words, the tagger should assign the most frequent tag in the entire training set (i.e., the mode)
+# def get_most_frequent_tag_in_data(df):
+#     # the "mode" of a list is the most likely value to appear (most frequent)
+#     return df['p'].values.mode()[0]
 
 
-    def train(self, data):
-        self.dictionary = get_most_frequent_tag_per_word(data)
-        self.most_frequent_tag = get_most_frequent_tag_in_data(data)
+# class simple_tagger:
+#     def __init__(self):
+#         self.dictionary = {} # "The dictionary should be stored as a class member for evaluation"
+#         self.most_frequent_tag = None # For OOV (out of vocabulary, or unknown) words, the tagger should assign the most frequent tag in the entire training set (i.e., the mode)
 
 
-    def evaluate(self, data):
-        total_words_hits = 0
-        sentence_hits = 0 # number of sentences in which all words are correctly classified
-        number_of_words_with_duplicates = len(data['w'])
-        sentences = get_list_of_sentences(data)
+#     def train(self, data):
+#         self.dictionary = get_most_frequent_tag_per_word(data)
+#         self.most_frequent_tag = get_most_frequent_tag_in_data(data)
+
+
+#     def evaluate(self, data):
+#         total_words_hits = 0
+#         sentence_hits = 0 # number of sentences in which all words are correctly classified
+#         number_of_words_with_duplicates = len(data['w'])
+#         sentences = get_list_of_sentences(data)
         
-        for i, sentence in enumerate(sentences, 1): # index starts at 1 because that's how the dataframe works
-            # check every word and sentence's accuracy
-            sentence_in_df = data.loc[(i)]
-            words = sentence.split()
-            words_hits = 0
+#         for i, sentence in enumerate(sentences, 1): # index starts at 1 because that's how the dataframe works
+#             # check every word and sentence's accuracy
+#             sentence_in_df = data.loc[(i)]
+#             words = sentence.split()
+#             words_hits = 0
 
-            for word in words:
-                actual_tag = sentence_in_df[sentence_in_df['w'] == word]['p'].values[0]
+#             for word in words:
+#                 actual_tag = sentence_in_df[sentence_in_df['w'] == word]['p'].values[0]
                 
-                if word in self.dictionary:
-                    predicted_tag = self.dictionary[word]
-                else:
-                    predicted_tag = self.most_frequent_tag
+#                 if word in self.dictionary:
+#                     predicted_tag = self.dictionary[word]
+#                 else:
+#                     predicted_tag = self.most_frequent_tag
                 
-                if actual_tag == predicted_tag:
-                    words_hits += 1
+#                 if actual_tag == predicted_tag:
+#                     words_hits += 1
 
-            total_words_hits += words_hits
+#             total_words_hits += words_hits
 
-            if words_hits == len(words):
-                sentence_hits += 1
+#             if words_hits == len(words):
+#                 sentence_hits += 1
 
-        word_level_accuracy = round(total_words_hits / number_of_words_with_duplicates * 100, 4)
-        sentence_level_accuracy = round(sentence_hits / len(sentences) * 100, 4)
+#         word_level_accuracy = round(total_words_hits / number_of_words_with_duplicates * 100, 4)
+#         sentence_level_accuracy = round(sentence_hits / len(sentences) * 100, 4)
         
-        return word_level_accuracy, sentence_level_accuracy
+#         return word_level_accuracy, sentence_level_accuracy
     
     
-tagger = simple_tagger()
-tagger.train(train_df)
+# tagger = simple_tagger()
+# tagger.train(train_df)
 
-# https://piazza.com/class/klxc3m1tzqz2o8?cid=40 - "You should evaluate on the test and dev datasets separately. The train file is for training only"
-simple_tagger_word_level_accuracy_train, simple_tagger_sentence_level_accuracy_train = tagger.evaluate(train_df)
-simple_tagger_word_level_accuracy_test, simple_tagger_sentence_level_accuracy_test = tagger.evaluate(test_df)
-simple_tagger_word_level_accuracy_dev, simple_tagger_sentence_level_accuracy_dev = tagger.evaluate(dev_df)
+# # https://piazza.com/class/klxc3m1tzqz2o8?cid=40 - "You should evaluate on the test and dev datasets separately. The train file is for training only"
+# simple_tagger_word_level_accuracy_train, simple_tagger_sentence_level_accuracy_train = tagger.evaluate(train_df)
+# simple_tagger_word_level_accuracy_test, simple_tagger_sentence_level_accuracy_test = tagger.evaluate(test_df)
+# simple_tagger_word_level_accuracy_dev, simple_tagger_sentence_level_accuracy_dev = tagger.evaluate(dev_df)
 
 
-print(f'*train* data: word accuracy = {simple_tagger_word_level_accuracy_train} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_train} %')
-print(f'*test* data: word accuracy = {simple_tagger_word_level_accuracy_test} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_test} %')
-print(f'*dev* data: word accuracy = {simple_tagger_word_level_accuracy_dev} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_dev} %')
+# print(f'*train* data: word accuracy = {simple_tagger_word_level_accuracy_train} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_train} %')
+# print(f'*test* data: word accuracy = {simple_tagger_word_level_accuracy_test} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_test} %')
+# print(f'*dev* data: word accuracy = {simple_tagger_word_level_accuracy_dev} %, sentence accuracy = {simple_tagger_sentence_level_accuracy_dev} %')
 
 
 """**Part 3**
@@ -309,22 +317,229 @@ Additional guidance:
 
 """
 
+
+### Create matrices
+pos_values = list(np.unique(train_df.loc[:, 'p'].values, return_counts=True))
+unique_words = np.unique(train_df.loc[:, 'w'].values)
+unique_pos= pos_values[0]
+unique_words_list  = unique_words.tolist()
+unique_pos_list  = unique_pos.tolist()
+
+
+# B = extract_ommision_matrix_B(train_df, unique_pos, unique_words)
+# A = generate_transition_matrix_A(train_df, unique_pos, unique_words)
+# pi_initial_matrix = np.ones([unique_pos.size,1])*(1/unique_pos.size)
+
+# get_list_of_sentences(train_df)
+def wordsToIdx(words, B_columns):
+    columns_as_list = list(B_columns)
+    wordsAsIdxSegment = []
+    
+    for word in words:
+        wordsAsIdxSegment.append(columns_as_list.index(word))
+
+    return wordsAsIdxSegment
+
+
+def segmentOfWordsToSentencePrediction(self, segment, sentencePredict, last=False):
+    if segment:
+        segmentIdx = wordsToIdx(segment, self.B.columns)
+        segmentPredict = viterbi(segmentIdx, self.A, self.B, self.Pi)
+        sentencePredict += segmentPredict
+
+    if not last:
+        random_tag = np.random.choice(self.A.index)
+        sentencePredict.append(random_tag)
+
+
+
+
 class hmm_tagger:
-  def train(self, data):
-      # TODO
+    data = pd.DataFrame()
+    A = []
+    B = []
+    Pi = []
+    uniqueWordsArr = []
+    
+    def __init__(self, data_df):
+        
+        unique_pos, pos_counts = list(np.unique(data_df.loc[:, 'p'].values, return_counts=True))
+        unique_words, word_counts = np.unique(data_df.loc[:, 'w'].values, return_counts=True)
+        unique_words_list  = unique_words.tolist()
+        unique_pos_list  = unique_pos.tolist()
+        
+        self.data_df = data_df
+        self.unique_pos = unique_pos
+        self.unique_words = unique_words
+        self.unique_words_list = unique_words_list
+        self.unique_pos_list = unique_pos_list
 
-      return 
 
-  def evaluate(self, data):
-      # TODO
-      return 
+
+    def train(self):
+
+        data_df = self.data_df
+        unique_pos = self.unique_pos
+        unique_words = self.unique_words
+        
+        
+        B = extract_ommision_matrix_B(self.data_df, unique_pos, unique_words)
+        A = generate_transition_matrix_A(self.data_df, unique_pos, unique_words)
+        Pi = np.ones([unique_pos.size,1])*(1/unique_pos.size)
+
+        
+        self.A = A
+        self.B = B
+        self.Pi = Pi
+        
+        
+
+    def evaluate(self, data):
+        
+        # get data 
+        data_df = self.data_df
+        
+        # initiate the amount of hits
+        words_hits = 0
+        
+        # number of sentences in which all words are correctly classified
+        sentence_hits = 0 
+        
+        number_of_words_with_duplicates = len(data_df['w'])
+        
+        sentence_list, sentence_tag_list = get_list_of_sentences_tag_lists(data_df)
+
+        # run on all sentences 
+        for index, (sentence, sentence_tags) in enumerate(zip(sentence_list, sentence_tag_list)):
+            # check for every word and sentence's accuracy
+            
+            # initiate the amounts of hits per sentence
+            sentence_hits = 0
+            sentenceIdx = []
+            
+            # this loop run on all words in sentence fror predicting
+
+            for word in sentence:
+                
+                if word in self.unique_words:
+                    wordIdx = list(self.B).index(word)
+                    sentenceIdx.append(wordIdx)
+                else:
+                    randomTagIdx = np.random.randint(len(self.uniqueWordsArr))
+                    sentenceIdx.append(randomTagIdx)
+
+                sentencePredict = viterbi(sentenceIdx, self.A, self.B, self.Pi)
+            
+            # this loop run on all words in sentence fror evaluating predicting
+            for word_idx, (word, actual_tag) in enumerate(zip(sentence, sentence_tags)):
+                
+                
+                # get predicting tag
+                predicted_tag = sentencePredict[word_idx]
+
+                
+                # check if the predicited tag is equal to GT    
+                if actual_tag == predicted_tag:
+                    sentence_hits += 1
+
+            words_hits += sentence_hits
+
+            if words_hits == len(sentence):
+                sentence_hits += 1
+        
+        
+        word_level_accuracy = round(words_hits / number_of_words_with_duplicates *100, 4)
+        sentence_level_accuracy = round(sentence_hits / len(sentence_list) *100, 4)
+
+        return word_level_accuracy, sentence_level_accuracy
+
+
+def findBestTag(delta_df, t):
+    maxValue = 0
+    bestTag = ''
+
+    for tag in delta_df.index:
+        currentValue =delta_df.loc[tag, t]
+        
+        if currentValue > maxValue:
+            maxValue = currentValue
+            bestTag = tag
+    
+    return bestTag
+
+
+
 
 # Viterbi
 def viterbi (observations, A, B, Pi):
-    best_sequence = None
     #...
-    
+    # creates variables
+    delta_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0) 
+    psi_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0)
+    best_sequence = [0]*len(observations)
+
+    firstObserv = observations[0]
+    listOfWords = list(B.columns)
+    firstObservWord = listOfWords[firstObserv]
+
+    # initializtion step
+    for tag in delta_df.index:
+        b = B.loc[tag, firstObservWord]
+        delta_df.loc[tag, 0] = b*Pi[tag]
+        psi_df.loc[tag, 0] = 0
+
+    # iteration step
+    for observIdx, currentObserv in enumerate(observations[1:], 1):
+        currentObservWord = listOfWords[currentObserv]
+        valuesToTakeMax = []
+
+        maxValue = 0
+        bestTagForMaxValue = ''
+
+        for tag in delta_df.index:
+            b = B.loc[tag, currentObservWord]
+
+            for tag2 in delta_df.index:
+                currentValue = delta_df.loc[tag2, observIdx-1] * A.loc[tag2, tag]
+
+            if currentValue > maxValue:
+                maxValue = currentValue
+                bestTagForMaxValue = tag2
+        delta_df.loc[tag, observIdx] = maxValue*b
+        psi_df.loc[tag, observIdx] = bestTagForMaxValue
+
+
+    # sequence recovery
+    t = len(observations)-1
+    best_sequence[t] = findBestTag(delta_df, t)
+
+    for t in range(len(observations)-2, -1, -1):
+        best_sequence[t] = psi_df.loc[best_sequence[t+1], t+1]
+
     return best_sequence
+
+
+hmmTagger = hmm_tagger()
+
+
+hmmTagger.train(train_df)
+
+hmm_word_level_accuracy_test, hmm_sentence_level_accuracy_test = hmmTagger.evaluate(test_df)
+hmm_word_level_accuracy_dev, hmm_sentence_level_accuracy_dev = hmmTagger.evaluate(dev_df)
+
+print(f'*test* data: word accuracy = {hmm_word_level_accuracy_test} %, sentence accuracy = {hmm_sentence_level_accuracy_test} %')
+print(f'*dev* data: word accuracy = {hmm_word_level_accuracy_dev} %, sentence accuracy = {hmm_sentence_level_accuracy_dev} %')
+
+
+
+# A simple example to run the Viterbi algorithm:
+#( Same as in presentation "NLP 3 - Tagging" on slide 35)
+
+# A = np.array([[0.3, 0.7], [0.2, 0.8]])
+# B = np.array([[0.1, 0.1, 0.3, 0.5], [0.3, 0.3, 0.2, 0.2]])
+# Pi = np.array([0.4, 0.6])
+# print(viterbi([0, 3, 1, 0], A, B, Pi))
+# Expected output: 1, 1, 1, 1
 
 # A simple example to run the Viterbi algorithm:
 #( Same as in presentation "NLP 3 - Tagging" on slide 35)
