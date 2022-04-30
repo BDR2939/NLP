@@ -60,6 +60,8 @@ def read_conllu(path):
     "https://www.youtube.com/watch?v=lvJRFMvWtFI"
     # train data
     list_of_words  = []
+    transition_conversion_list = []
+    pos_tag_list = []
     idx = 0
     data_file = open(path, "r", encoding="utf-8")
     annotation = data_file.read()
@@ -82,31 +84,66 @@ def read_conllu(path):
         text = metadata['text']
         
         # token index 
+        i_token_idx = 0
+        old_word = ''
+        old_pos_tag = ''
         for i_token in sentence_tokens:
             
             if 'lemma' in i_token.keys():
+                
                 # get token line
                 word = i_token['lemma']
                 pos_tag =  i_token['upos']
+                if i_token_idx != 0:
+                    new_posible_key = old_pos_tag + '_' + pos_tag
+                    if not new_posible_key in  data_dict[item_idx].keys():
+                        data_dict[item_idx][new_posible_key] = 1
+                    else:
+                        data_dict[item_idx][new_posible_key] += 1
+                    transition_conversion_list.append(new_posible_key)
+                    pos_tag_list.append(pos_tag)
+                    
+                old_word = word
+                old_pos_tag = pos_tag
+
                 list_of_words.append(word)
                 if not 'text' in  data_dict[item_idx].keys():
                     data_dict[item_idx]['text'] = text
 
                 data_dict[item_idx][word] = pos_tag
-                
-
             else:
                 continue
+            i_token_idx += 1
         item_idx += 1
 
-    return data_dict, list_of_words
+    return data_dict, list_of_words, transition_conversion_list, pos_tag_list
 
 
-train_dict, train_list_of_word = read_conllu(ud_train)
-dev_dict, dev_list_of_word = read_conllu(ud_dev)
-test_dict, test_list_of_word  = read_conllu(ud_test)
+train_dict, train_list_of_word, train_transition_conversion_list, pos_tag_list = read_conllu(ud_train)
+dev_dict, dev_list_of_word,dummy2_transition_conversion_list,d = read_conllu(ud_dev)
+test_dict, test_list_of_word, dumm1_transition_conversion_list,d  = read_conllu(ud_test)
     
-    
+
+train_words, train_counts_word = np.unique(np.array(train_list_of_word), return_counts=True)
+
+word_freq = train_counts_word/np.sum(train_counts_word)
+
+
+pos_tag_array = np.array(pos_tag_list)
+conversion_options, conversion_counts = np.unique(np.array(train_transition_conversion_list), return_counts=True)
+pos_tag_array_unique, conversion_counts = np.unique(np.array(pos_tag_array), return_counts=True)
+
+all_maze_states = np.array(np.meshgrid(pos_tag_array, pos_tag_array)).T.reshape(-1,2)
+
+
+
+conversion_options, conversion_counts = np.unique(np.array(train_transition_conversion_list), return_counts=True)
+
+
+
+
+
+
 # train_file = 'en_ewt-ud-train.conllu'
 # indexed_fields = {'sent_id', 's_type', 'text'}
 
