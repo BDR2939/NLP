@@ -45,15 +45,17 @@ You should write a code that reads the three datasets into memory. You may choos
 
 # Your code goes here
 user = 'Or'
+# Your code goes here
+user = 'Or'
 if user == 'Or':
-    ud_dev = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-dev.conllu"
-    ud_train = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-train.conllu"
-    ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
+    ud_dev = r"C:\MSC\NLP2\HW2\en_gum-ud-dev.csv"
+    ud_train = r"C:\MSC\NLP2\HW2\en_gum-ud-train.csv"
+    ud_test = r"C:\MSC\NLP2\HW2\en_gum-ud-test.csv"
+    
 else:
     ud_dev = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-dev.conllu"
     ud_train = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-train.conllu"
     ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
-
 
 
 def read_conllu(path):
@@ -119,49 +121,100 @@ def read_conllu(path):
     return data_dict, list_of_words, transition_conversion_list, pos_tag_list
 
 
-train_dict, train_list_of_word, train_transition_conversion_list, pos_tag_list = read_conllu(ud_train)
-dev_dict, dev_list_of_word,dummy2_transition_conversion_list,d = read_conllu(ud_dev)
-test_dict, test_list_of_word, dumm1_transition_conversion_list,d  = read_conllu(ud_test)
-    
+def extract_ommision_matrix_B(train_df, unique_pos, unique_words):
+    unique_words_list = unique_words.tolist()
+    unique_pos_list = unique_pos.tolist()
 
-train_words, train_counts_word = np.unique(np.array(train_list_of_word), return_counts=True)
+    B = np.zeros([len(unique_pos), len(unique_words)])
+    B_row_index = 0
+    for i_pos in unique_pos:
+        i_pos_train_df = train_df.loc[train_df['p'] == i_pos]
+        i_pos_words, i_pos_word_count = np.unique(i_pos_train_df.loc[:, 'w'].values, return_counts=True)
+        i_pos_percent = i_pos_word_count / np.sum(i_pos_word_count)
+        i_pos_words_list = i_pos_words.tolist()
+        for i_word in i_pos_words_list:
+            if i_word in i_pos_words_list:
+                word_index = i_pos_words_list.index(i_word)
+                updated_percent_per_word_per_pos = i_pos_percent[word_index]
+                B_column_word_index = unique_words_list.index(i_word)
+                B[B_row_index, B_column_word_index] = updated_percent_per_word_per_pos
+            else:
+                continue
+        B_row_index += 1
 
-word_freq = train_counts_word/np.sum(train_counts_word)
-
-
-pos_tag_array = np.array(pos_tag_list)
-conversion_options, conversion_counts = np.unique(np.array(train_transition_conversion_list), return_counts=True)
-pos_tag_array_unique, conversion_counts = np.unique(np.array(pos_tag_array), return_counts=True)
-
-all_maze_states = np.array(np.meshgrid(pos_tag_array, pos_tag_array)).T.reshape(-1,2)
-
-
-
-conversion_options, conversion_counts = np.unique(np.array(train_transition_conversion_list), return_counts=True)
-
-
-
-
-
-
-# train_file = 'en_ewt-ud-train.conllu'
-# indexed_fields = {'sent_id', 's_type', 'text'}
-
-# p = pipe()
-# index = pipe().read_conllu(ud_train).pipe(p).create_index(fields=indexed_fields)
-# train_data = pipe().read_conllu(ud_train).pipe(p).to_instance(index).collect()
+    return B
 
 
-# total_size = 10000
-# batch_size = 100
+def generate_transition_matrix_A(train_df, unique_pos, unique_words):
+    A = np.zeros([len(unique_pos), len(unique_pos)])
+    rol_train_df = train_df.copy()
+    rol_train_df = rol_train_df.iloc[np.arange(-1, len(rol_train_df) - 1)].reset_index(drop=True)
+    rol_train_df = rol_train_df[1:]
+    A_row_index = 0
+    for i_pos in unique_pos:
+        index_2_slice = (train_df['p'] == i_pos)
+        index_2_slice = index_2_slice.iloc[np.arange(-1, len(index_2_slice) - 1)].reset_index(drop=True)
+        index_2_slice.iloc[0] = False
+        i_pos_train_df = train_df.loc[index_2_slice]
 
-# for batch in pipe(ud_train).stream(total_size).shuffle().batch(batch_size):
-#     # Update your model for the next batch of instances.
-#     instance = batch[0]
-#     # Instance values are indexed and stored in the NumPy arrays.
-#     length = instance['form'].shape[0]
+        i_pos_pos, i_pos_pos_count = np.unique(i_pos_train_df.loc[:, 'p'].values, return_counts=True)
+        i_pos_percent = i_pos_pos_count / np.sum(i_pos_pos_count)
+        i_pos_pos_list = i_pos_pos.tolist()
+        for i_pos_next in i_pos_pos_list:
+            if i_pos_next in i_pos_pos_list:
+                pos_index = i_pos_pos_list.index(i_pos_next)
+                updated_percent_per_pos_per_pos = i_pos_percent[pos_index]
+                A_column_pos_index = unique_pos_list.index(i_pos_next)
+                A[A_row_index, A_column_pos_index] = updated_percent_per_pos_per_pos
+            else:
+                continue
+        A_row_index += 1
+    return A
+
+
+
+
+
+import pandas as pd
+
+
+train_df = pd.read_csv(ud_train)
+dev_df = pd.read_csv(ud_dev)
+test_df = pd.read_csv(ud_test)
+
+
+### Create matrices
+pos_values = list(np.unique(train_df.loc[:, 'p'].values, return_counts=True))
+unique_words = np.unique(train_df.loc[:, 'w'].values)
+unique_pos= pos_values[0]
+unique_words_list  = unique_words.tolist()
+unique_pos_list  = unique_pos.tolist()
+
+
+B = extract_ommision_matrix_B(train_df, unique_pos, unique_words)
+A = generate_transition_matrix_A(train_df, unique_pos, unique_words)
+
+a=5
+def sentences_from_df(df):
+    sentences = []
+    sentence_ind = 1
+    sentence = []
+
+    for i in range(df.shape[0]):
+        curr_sentence_ind = df.index[i][0]
+        if curr_sentence_ind != sentence_ind:
+            sentences.append(str.join(" ", sentence))
+            sentence_ind += 1
+            sentence = []
+        sentence.append(df.iloc[i, :]['w'])
+
+    return sentences
+
+
+sentences = sentences_from_df(train_df)
+
+
 #     pass
-
 import operator
 import nltk
 
