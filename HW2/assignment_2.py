@@ -16,6 +16,7 @@ import  conllu
 from io import open
 from conllu import parse_incr
 from collections import defaultdict
+import pandas as pd
 
 
 
@@ -57,68 +58,6 @@ else:
     ud_train = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-train.conllu"
     ud_test = r"C:\MSC\NLP2\HW2\UD_English-GUM\en_gum-ud-test.conllu"
 
-
-def read_conllu(path):
-    "https://www.youtube.com/watch?v=lvJRFMvWtFI"
-    # train data
-    list_of_words  = []
-    transition_conversion_list = []
-    pos_tag_list = []
-    idx = 0
-    data_file = open(path, "r", encoding="utf-8")
-    annotation = data_file.read()
-    parse_annotation = conllu.parse(annotation)
-    data_dict = defaultdict(lambda : defaultdict(dict))
-    # item index
-    item_idx = 1
-    for item in parse_annotation:
-        
-        # get text tokens
-        line_tokens = item.filter()
-        
-        
-        # get token
-        sentence_tokens = list(map(lambda x: x, line_tokens))
-        
-     
-        # get meta data
-        metadata = item.metadata
-        text = metadata['text']
-        
-        # token index 
-        i_token_idx = 0
-        old_word = ''
-        old_pos_tag = ''
-        for i_token in sentence_tokens:
-            
-            if 'lemma' in i_token.keys():
-                
-                # get token line
-                word = i_token['lemma']
-                pos_tag =  i_token['upos']
-                if i_token_idx != 0:
-                    new_posible_key = old_pos_tag + '_' + pos_tag
-                    if not new_posible_key in  data_dict[item_idx].keys():
-                        data_dict[item_idx][new_posible_key] = 1
-                    else:
-                        data_dict[item_idx][new_posible_key] += 1
-                    transition_conversion_list.append(new_posible_key)
-                    pos_tag_list.append(pos_tag)
-                    
-                old_word = word
-                old_pos_tag = pos_tag
-
-                list_of_words.append(word)
-                if not 'text' in  data_dict[item_idx].keys():
-                    data_dict[item_idx]['text'] = text
-
-                data_dict[item_idx][word] = pos_tag
-            else:
-                continue
-            i_token_idx += 1
-        item_idx += 1
-
-    return data_dict, list_of_words, transition_conversion_list, pos_tag_list
 
 
 def extract_ommision_matrix_B(train_df, unique_pos, unique_words):
@@ -177,7 +116,100 @@ def generate_transition_matrix_A(train_df, unique_pos, unique_words):
 
 
 
-import pandas as pd
+def get_list_of_sentences_tag_lists(df):
+    word_index_array = df['i'].to_numpy()
+    initial_sentence_idx = np.where(word_index_array == 1)[0]
+    words_list = df['w'].to_list()
+    tag_list = df['p'].to_list()
+
+    sentence_list  = (initial_sentence_idx.size-1)*['None']
+    sentence_tag_list  = (initial_sentence_idx.size-1)*['None']
+
+    for sentence_idx in range(initial_sentence_idx.size-1):
+        curr_sentence =  words_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+        curr_tag =  tag_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+
+        
+        sentence_list[sentence_idx] = curr_sentence
+        sentence_tag_list[sentence_idx] = curr_tag
+
+    return sentence_list, sentence_tag_list
+
+
+def sentences_from_df(df):
+    sentences = []
+    sentence_ind = 1
+    sentence = []
+    
+    
+        
+    for i in range(df.shape[0]):
+        if not 's' in df.columns:
+            curr_sentence_ind = df.index[i][0]
+        else:
+            curr_sentence_ind = df.iloc[i]['s']
+
+        if curr_sentence_ind != sentence_ind:
+            sentences.append(str.join(" ", sentence))
+            sentence_ind += 1
+            sentence = []
+        sentence.append(df.iloc[i, :]['w'])
+
+    return sentences
+
+
+
+class simple_tagger:
+    def __init__(self):
+        self.tagger = {}
+    
+    def train(self, data):
+        pos = np.unique(data['p'], return_counts=True)
+        most_frequent_pos = pos[0][np.where(pos[1] == max(pos[1]))][0]
+
+        tagger = defaultdict(lambda: most_frequent_pos)
+
+        unique_words = np.unique(data.loc[:, 'w'].values)
+        for word in unique_words:
+            word_data = data.loc[data['w'] == word]
+            word_data_count = word_data['p'].value_counts()
+            predicted_tag = word_data_count.index[0]
+            # predicted_tag = pos_of_word = np.unique(data.loc[data['w'] == word, 'p'], return_counts=True)
+            tagger[word] = predicted_tag
+
+        self.tagger = tagger
+    def evaluate(self, data):
+        # sentences = sentences_from_df(data)
+        sentences_list, sentence_tag_list = get_list_of_sentences_tag_lists(data)
+
+        words_success = 0
+        sentences_success = 0
+        idx = pd.IndexSlice
+        for sentence_num, (sentence, sentence_tags) in enumerate(zip(sentences_list, sentence_tag_list)):
+        # for sentence_num, sentence in enumerate(sentences, 1):
+            count_successes = 0
+            # sentence_df = data.loc[idx[sentence_num], 'p'].values
+            for word_num, (word, actual_tag) in enumerate(zip(sentence, sentence_tags)):
+            # for word_num, word in enumerate(sentence.split(' ')):
+                preducted_tag = self.tagger[word]
+                # actual_tag = sentence_df[word_num]
+
+                if preducted_tag == actual_tag:
+                    words_success += 1
+                    count_successes += 1
+
+            if count_successes == len(sentence)-1:
+                sentences_success += 1
+
+        word_accuracy = round(words_success / data.shape[0] * 100, 4)
+        sentence_accuracy = round(sentences_success / len(sentences_list) * 100, 4)
+
+        return word_accuracy, sentence_accuracy
+    
+    
+    
+
+
 
 
 train_df = pd.read_csv(ud_train)
@@ -186,25 +218,32 @@ test_df = pd.read_csv(ud_test)
 
 
 
-def get_list_of_sentences_tag_lists(df):
-    word_index_array = df['i'].to_numpy()
-    initial_sentence_idx = np.where(word_index_array == 1)[0]
-    words_list = df['w'].to_list()
-    tag_list = df['p'].to_list()
 
-    sentence_list  = initial_sentence_idx.size*['None']
-    sentence_tag_list  = initial_sentence_idx.size*['None']
+# sentences1 = sentences_from_df(train_df)
 
-    for sentence_idx in range(initial_sentence_idx.size-1):
-        curr_sentence =  words_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
-        curr_tag =  tag_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+sentences, tag = get_list_of_sentences_tag_lists(train_df)
 
-        
-        sentence_list[sentence_idx] = curr_sentence
-        sentence_tag_list[sentence_idx] = curr_sentence
+tagger = simple_tagger()
+tagger.train(train_df)
 
-    return sentence_list, sentence_tag_list
 
+simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train = tagger.evaluate(train_df)
+simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev = tagger.evaluate(dev_df)
+simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test = tagger.evaluate(test_df)
+
+
+result_list = [['train' ,simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train],
+['dev', simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev],
+['test', simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test]]
+
+simple_tagger_results =  pd.DataFrame(result_list, columns = ['data-set', 'word-accuracy[%]', 'sentence-accuracy[%]'])
+simple_tagger_results.head()
+# print(f'train data: word accuracy = {simple_tagger_word_accuracy_train}%, sentence accuracy = {simple_tagger_sentence_accuracy_train}%')
+# print(f'dev data: word accuracy = {simple_tagger_word_accuracy_dev}%, sentence accuracy = {simple_tagger_sentence_accuracy_dev}%')
+# print(f'test data: word accuracy = {simple_tagger_word_accuracy_test}%, sentence accuracy = {simple_tagger_sentence_accuracy_test}%')
+
+
+a=5 
 #     pass
 # import operator
 # import nltk
