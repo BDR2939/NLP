@@ -391,12 +391,7 @@ def dptable(V):
        yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
 
 def viterbi_algorithm(observations, states, start_p, trans_p, emit_p):
-    
-    
-       
-    
-                    
-                    
+             
      V = [{}]
      for st in states:
          V[0][st] = {"prob": start_p[st] * emit_p[st][observations[0]], "prev": None}
@@ -426,6 +421,9 @@ def viterbi_algorithm(observations, states, start_p, trans_p, emit_p):
         if data["prob"] > max_prob:
             max_prob = data["prob"]
             best_st = st
+     
+     if best_st == None:
+         best_st = random.choice(list(V[-1].keys()))
      opt.append(best_st)
      previous = best_st
  
@@ -493,6 +491,12 @@ class hmm_tagger:
         sentences_success = 0
         idx = pd.IndexSlice
         for sentence_num, (sentence, sentence_tags) in enumerate(zip(sentences_list, sentence_tag_list)):
+            if sentence_num == 447:
+                sentence_num = 447
+                sentence_tags = sentence_tag_list[sentence_num]
+                sentence = sentences_list[sentence_num]
+
+            print('sen' + str(sentence_num))
             # for sentence_num, sentence in enumerate(sentences, 1):
             count_successes = 0
             
@@ -500,14 +504,15 @@ class hmm_tagger:
             # validate all word in sentence is in train data set otherwise
             # choose randomly word from bank of word
             for i_word_idx, word in enumerate(sentence):
-                if not word in self.unique_words:
+                if not word in self.unique_words_list:
                     sentence[i_word_idx] = random.choice(self.unique_words_list)
                 
-                
+         
             predicted_tag_list = viterbi_algorithm(tuple(sentence), self.states, self.Pi, self.A, self.B)  
-            
+           
+
             for word_num, (predicted_tag, actual_tag) in enumerate(zip(predicted_tag_list, sentence_tags)):
-                # print('word nun ' + str(word_num))
+                print('word nun ' + str(word_num))
 
                 if predicted_tag == actual_tag:
                     words_success += 1
@@ -590,7 +595,7 @@ class hmm_tagger:
 
 hmmTagger = hmm_tagger(train_df)
 hmmTagger.train()
-test_df = test_df[0:51]
+# test_df = test_df[0:51] 
 hmm_word_level_accuracy_test, hmm_sentence_level_accuracy_test = hmmTagger.evaluate(test_df)
 # hmm_word_level_accuracy_dev, hmm_sentence_level_accuracy_dev = hmmTagger.evaluate(dev_df)
 
