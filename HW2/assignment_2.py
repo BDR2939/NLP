@@ -17,7 +17,7 @@ from io import open
 from conllu import parse_incr
 from collections import defaultdict
 import pandas as pd
-
+import random
 
 
 """**Part 1** (getting the data)
@@ -122,13 +122,17 @@ def get_list_of_sentences_tag_lists(df):
     words_list = df['w'].to_list()
     tag_list = df['p'].to_list()
 
-    sentence_list  = (initial_sentence_idx.size-1)*['None']
-    sentence_tag_list  = (initial_sentence_idx.size-1)*['None']
+    sentence_list  = (initial_sentence_idx.size)*['None']
+    sentence_tag_list  = (initial_sentence_idx.size)*['None']
 
-    for sentence_idx in range(initial_sentence_idx.size-1):
-        curr_sentence =  words_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
-        curr_tag =  tag_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
-
+    for sentence_idx in range(initial_sentence_idx.size):
+        if not sentence_idx == initial_sentence_idx.size-1:
+            
+            curr_sentence =  words_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+            curr_tag =  tag_list[initial_sentence_idx[sentence_idx]:initial_sentence_idx[sentence_idx+1]]
+        else:
+            curr_sentence =  words_list[initial_sentence_idx[sentence_idx]::]
+            curr_tag =  tag_list[initial_sentence_idx[sentence_idx]::]
         
         sentence_list[sentence_idx] = curr_sentence
         sentence_tag_list[sentence_idx] = curr_tag
@@ -191,10 +195,10 @@ class simple_tagger:
             # sentence_df = data.loc[idx[sentence_num], 'p'].values
             for word_num, (word, actual_tag) in enumerate(zip(sentence, sentence_tags)):
             # for word_num, word in enumerate(sentence.split(' ')):
-                preducted_tag = self.tagger[word]
+                predicted_tag = self.tagger[word]
                 # actual_tag = sentence_df[word_num]
 
-                if preducted_tag == actual_tag:
+                if predicted_tag == actual_tag:
                     words_success += 1
                     count_successes += 1
 
@@ -221,23 +225,23 @@ test_df = pd.read_csv(ud_test)
 
 # sentences1 = sentences_from_df(train_df)
 
-sentences, tag = get_list_of_sentences_tag_lists(train_df)
+# sentences, tag = get_list_of_sentences_tag_lists(train_df)
 
-tagger = simple_tagger()
-tagger.train(train_df)
-
-
-simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train = tagger.evaluate(train_df)
-simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev = tagger.evaluate(dev_df)
-simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test = tagger.evaluate(test_df)
+# tagger = simple_tagger()
+# tagger.train(train_df)
 
 
-result_list = [['train' ,simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train],
-['dev', simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev],
-['test', simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test]]
+# simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train = tagger.evaluate(train_df)
+# simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev = tagger.evaluate(dev_df)
+# simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test = tagger.evaluate(test_df)
 
-simple_tagger_results =  pd.DataFrame(result_list, columns = ['data-set', 'word-accuracy[%]', 'sentence-accuracy[%]'])
-simple_tagger_results.head()
+
+# result_list = [['train' ,simple_tagger_word_accuracy_train, simple_tagger_sentence_accuracy_train],
+# ['dev', simple_tagger_word_accuracy_dev, simple_tagger_sentence_accuracy_dev],
+# ['test', simple_tagger_word_accuracy_test, simple_tagger_sentence_accuracy_test]]
+
+# simple_tagger_results =  pd.DataFrame(result_list, columns = ['data-set', 'word-accuracy[%]', 'sentence-accuracy[%]'])
+# simple_tagger_results.head()
 # print(f'train data: word accuracy = {simple_tagger_word_accuracy_train}%, sentence accuracy = {simple_tagger_sentence_accuracy_train}%')
 # print(f'dev data: word accuracy = {simple_tagger_word_accuracy_dev}%, sentence accuracy = {simple_tagger_sentence_accuracy_dev}%')
 # print(f'test data: word accuracy = {simple_tagger_word_accuracy_test}%, sentence accuracy = {simple_tagger_sentence_accuracy_test}%')
@@ -297,6 +301,16 @@ unique_pos_list  = unique_pos.tolist()
 # pi_initial_matrix = np.ones([unique_pos.size,1])*(1/unique_pos.size)
 
 # get_list_of_sentences(train_df)
+
+POS = 'p'
+WORD = 'w'
+def get_list_of_sentences(df):
+    number_of_sentences = df['w'].keys()[-1][0] # get the last sentence (s column) value === number of sentences in df
+    sentences = [df.loc[(i)]['w'].str.cat(sep=' ') for i in range(1, number_of_sentences + 1)]
+    return sentences
+
+
+
 def wordsToIdx(words, B_columns):
     columns_as_list = list(B_columns)
     wordsAsIdxSegment = []
@@ -317,9 +331,113 @@ def segmentOfWordsToSentencePrediction(self, segment, sentencePredict, last=Fals
         random_tag = np.random.choice(self.A.index)
         sentencePredict.append(random_tag)
 
+def update_A(A, i, currentSentenceTags):
+    currentTag = currentSentenceTags[i]
+    previousTag = currentSentenceTags[i-1]
+    A.loc[previousTag, currentTag] +=1
 
 
+def update_B(B, currentSentenceWords, currentSentenceTags):
+    for word, tag in zip(currentSentenceWords, currentSentenceTags):
+        B.loc[tag, word]+=1
 
+
+def updatePi(Pi, currentTag):
+    Pi[currentTag] +=1
+    
+    
+def calc_A_B_Pi(data):
+      POS = 'p'
+      WORD = 'w'
+      number_of_sentences = data.iloc[-1]['s']
+      uniqueTags = set(data[POS])
+      uniqueWords = set(data[WORD])
+
+      # numOfTagsOccuresDict = dict.fromkeys(list(uniqueTags),0)
+      A = pd.DataFrame(index=uniqueTags, columns=uniqueTags).fillna(0)
+      B = pd.DataFrame(index=uniqueTags, columns=uniqueWords).fillna(0)
+
+      # dict for every tag and its initial probability
+      Pi = dict.fromkeys(list(uniqueTags),0)
+
+      for j in range(1, number_of_sentences+1):
+        currentSentenceTags = data.loc[(j)][POS]
+        currentSentenceWords = data.loc[(j)][WORD]
+
+        update_B(B, currentSentenceWords, currentSentenceTags)
+
+        for i in range(1, len(currentSentenceTags)+1):
+
+          if i == 1:
+            currentTag = currentSentenceTags[i]
+            updatePi(Pi, currentTag)
+          else:
+            update_A(A, i, currentSentenceTags)
+
+      A["sum"] = A.sum(axis=1)
+      A = A.loc[:, A.columns != 'sum'].div(A["sum"], axis=0)
+
+      B["sum"] = B.sum(axis=1)
+      B = B.loc[:, B.columns != 'sum'].div(B["sum"], axis=0)
+
+      for tag in Pi.keys():
+         Pi[tag] /= number_of_sentences
+
+      return A, B, Pi
+def dptable(V):
+
+   yield " ".join(("%12d" % i) for i in range(len(V)))
+   for state in V[0]:
+       yield "%.7s: " % state + " ".join("%.7s" % ("%f" % v[state]["prob"]) for v in V)
+
+def viterbi_algorithm(observations, states, start_p, trans_p, emit_p):
+    
+    
+       
+    
+                    
+                    
+     V = [{}]
+     for st in states:
+         V[0][st] = {"prob": start_p[st] * emit_p[st][observations[0]], "prev": None}
+   
+     for t in range(1, len(observations)):
+         V.append({})
+         for st in states:
+            max_tr_prob = V[t - 1][states[0]]["prob"] * trans_p[states[0]][st]
+            prev_st_selected = states[0]
+            for prev_st in states[1:]:
+                tr_prob = V[t - 1][prev_st]["prob"] * trans_p[prev_st][st]
+                if tr_prob > max_tr_prob:
+                    max_tr_prob = tr_prob
+                    prev_st_selected = prev_st
+ 
+            max_prob = max_tr_prob * emit_p[st][observations[t]]
+            V[t][st] = {"prob": max_prob, "prev": prev_st_selected}
+     
+     # for line in dptable(V):
+     #    print(line)
+ 
+     opt = []
+     max_prob = 0.0
+     best_st = None
+ 
+     for st, data in V[-1].items():
+        if data["prob"] > max_prob:
+            max_prob = data["prob"]
+            best_st = st
+     opt.append(best_st)
+     previous = best_st
+ 
+ 
+     for t in range(len(V) - 2, -1, -1):
+        opt.insert(0, V[t + 1][previous]["prev"])
+        previous = V[t + 1][previous]["prev"]
+        
+     return opt
+ 
+    
+ 
 class hmm_tagger:
     data = pd.DataFrame()
     A = []
@@ -341,7 +459,7 @@ class hmm_tagger:
         self.unique_pos_list = unique_pos_list
 
 
-
+    
     def train(self):
 
         data_df = self.data_df
@@ -353,148 +471,131 @@ class hmm_tagger:
         A = generate_transition_matrix_A(self.data_df, unique_pos, unique_words)
         Pi = np.ones([unique_pos.size,1])*(1/unique_pos.size)
 
+        B = pd.DataFrame(B.T, index = unique_words, columns = unique_pos)
+        A = pd.DataFrame(A.T, index =unique_pos , columns = unique_pos)
+        Pi = pd.DataFrame(Pi.T, columns = unique_pos)
+   
+        self.states = tuple(unique_pos)
+        self.A = A.to_dict()
+        self.B = B.to_dict()
+        self.Pi = Pi.to_dict('records')[0]
         
-        self.A = A
-        self.B = B
-        self.Pi = Pi
-        
-        
+        # self.A, self.B, self.Pi = calc_A_B_Pi(data_df)
+        self.uniqueWordsArr = unique_words.tolist()
 
-    def evaluate(self, data):
-        
-        # get data 
-        data_df = self.data_df
-        
-        # initiate the amount of hits
-        words_hits = 0
-        
-        # number of sentences in which all words are correctly classified
-        sentence_hits = 0 
-        
-        number_of_words_with_duplicates = len(data_df['w'])
-        
-        sentence_list, sentence_tag_list = get_list_of_sentences_tag_lists(data_df)
-
-        # run on all sentences 
-        for index, (sentence, sentence_tags) in enumerate(zip(sentence_list, sentence_tag_list)):
-            # check for every word and sentence's accuracy
-            
-            # initiate the amounts of hits per sentence
-            sentence_hits = 0
-            sentenceIdx = []
-            
-            # this loop run on all words in sentence fror predicting
-
-            for word in sentence:
-                
-                if word in self.unique_words:
-                    wordIdx = list(self.B).index(word)
-                    sentenceIdx.append(wordIdx)
-                else:
-                    randomTagIdx = np.random.randint(len(self.uniqueWordsArr))
-                    sentenceIdx.append(randomTagIdx)
-
-                sentencePredict = viterbi(sentenceIdx, self.A, self.B, self.Pi)
-            
-            # this loop run on all words in sentence fror evaluating predicting
-            for word_idx, (word, actual_tag) in enumerate(zip(sentence, sentence_tags)):
-                
-                
-                # get predicting tag
-                predicted_tag = sentencePredict[word_idx]
-
-                
-                # check if the predicited tag is equal to GT    
-                if actual_tag == predicted_tag:
-                    sentence_hits += 1
-
-            words_hits += sentence_hits
-
-            if words_hits == len(sentence):
-                sentence_hits += 1
-        
-        
-        word_level_accuracy = round(words_hits / number_of_words_with_duplicates *100, 4)
-        sentence_level_accuracy = round(sentence_hits / len(sentence_list) *100, 4)
-
-        return word_level_accuracy, sentence_level_accuracy
-
-
-def findBestTag(delta_df, t):
-    maxValue = 0
-    bestTag = ''
-
-    for tag in delta_df.index:
-        currentValue =delta_df.loc[tag, t]
-        
-        if currentValue > maxValue:
-            maxValue = currentValue
-            bestTag = tag
+   
     
-    return bestTag
+    def evaluate(self, data):
+        # sentences = sentences_from_df(data)
+        sentences_list, sentence_tag_list = get_list_of_sentences_tag_lists(data)
+        sentenceIdx = [] 
+        words_success = 0
+        sentences_success = 0
+        idx = pd.IndexSlice
+        for sentence_num, (sentence, sentence_tags) in enumerate(zip(sentences_list, sentence_tag_list)):
+            # for sentence_num, sentence in enumerate(sentences, 1):
+            count_successes = 0
+            
+            
+            # validate all word in sentence is in train data set otherwise
+            # choose randomly word from bank of word
+            for i_word_idx, word in enumerate(sentence):
+                if not word in self.unique_words:
+                    sentence[i_word_idx] = random.choice(self.unique_words_list)
+                
+                
+            predicted_tag_list = viterbi_algorithm(tuple(sentence), self.states, self.Pi, self.A, self.B)  
+            
+            for word_num, (predicted_tag, actual_tag) in enumerate(zip(predicted_tag_list, sentence_tags)):
+                # print('word nun ' + str(word_num))
+
+                if predicted_tag == actual_tag:
+                    words_success += 1
+                    count_successes += 1
+
+            if count_successes == len(sentence)-1:
+                sentences_success += 1
+
+        word_accuracy = round(words_success / data.shape[0] * 100, 4)
+        sentence_accuracy = round(sentences_success / len(sentences_list) * 100, 4)
+
+        return word_accuracy, sentence_accuracy
 
 
 
 
-# Viterbi
-def viterbi (observations, A, B, Pi):
-    #...
-    # creates variables
-    delta_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0) 
-    psi_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0)
-    best_sequence = [0]*len(observations)
-
-    firstObserv = observations[0]
-    listOfWords = list(B.columns)
-    firstObservWord = listOfWords[firstObserv]
-
-    # initializtion step
-    for tag in delta_df.index:
-        b = B.loc[tag, firstObservWord]
-        delta_df.loc[tag, 0] = b*Pi[tag]
-        psi_df.loc[tag, 0] = 0
-
-    # iteration step
-    for observIdx, currentObserv in enumerate(observations[1:], 1):
-        currentObservWord = listOfWords[currentObserv]
-        valuesToTakeMax = []
-
-        maxValue = 0
-        bestTagForMaxValue = ''
-
-        for tag in delta_df.index:
-            b = B.loc[tag, currentObservWord]
-
-            for tag2 in delta_df.index:
-                currentValue = delta_df.loc[tag2, observIdx-1] * A.loc[tag2, tag]
-
-            if currentValue > maxValue:
-                maxValue = currentValue
-                bestTagForMaxValue = tag2
-        delta_df.loc[tag, observIdx] = maxValue*b
-        psi_df.loc[tag, observIdx] = bestTagForMaxValue
 
 
-    # sequence recovery
-    t = len(observations)-1
-    best_sequence[t] = findBestTag(delta_df, t)
+# # Viterbi
+# def viterbi (observations, A, B, Pi):
+#     #...
+#     # creates variables
+#     delta_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0) 
+#     psi_df = pd.DataFrame(index=B.index, columns=np.arange(len(observations))).fillna(0)
+#     best_sequence = [0]*len(observations)
 
-    for t in range(len(observations)-2, -1, -1):
-        best_sequence[t] = psi_df.loc[best_sequence[t+1], t+1]
+#     firstObserv = observations[0]
+#     listOfWords = list(B.columns)
+#     listOftags = list(B.index)
 
-    return best_sequence
+#     firstObservWord = listOfWords[firstObserv]
+
+#     # initializtion step
+#     for tag in delta_df.index:
+#         b = B.loc[tag, firstObservWord]
+#         delta_df.loc[tag, 0] = b*Pi[tag][0]
+#         psi_df.loc[tag, 0] = 0
+
+#     # iteration step
+#     for observIdx, currentObserv in enumerate(observations[1:], 1):
+#         currentObservWord = listOfWords[currentObserv]
+#         valuesToTakeMax = []
+
+#         maxValue = 0
+#         bestTagForMaxValue = ''
+
+#         for tag in delta_df.index:
+#             b = B.loc[tag, currentObservWord]
+
+#             for tag2 in delta_df.index:
+#                 currentValue = delta_df.loc[tag2, observIdx-1] * A.loc[tag2, tag]
+
+#             if currentValue > maxValue:
+#                 maxValue = currentValue
+#                 bestTagForMaxValue = tag2
+#         delta_df.loc[tag, observIdx] = maxValue*b
+#         psi_df.loc[tag, observIdx] = bestTagForMaxValue
 
 
-hmmTagger = hmm_tagger()
+#     # sequence recovery
+#     t = len(observations)-1
+#     best_sequence[t] = findBestTag(delta_df, t)
+#     try:
+#         for t in range(len(observations)-2, -1, -1):
+#             best_sequence[t] = psi_df.loc[best_sequence[t], t+1]
+#     except:
+#         pass
+    
+#     return best_sequence
+
+# A simple example to run the Viterbi algorithm:
+#( Same as in presentation "NLP 3 - Tagging" on slide 35)
+
+# A = np.array([[0.3, 0.7], [0.2, 0.8]])
+# B = np.array([[0.1, 0.1, 0.3, 0.5], [0.3, 0.3, 0.2, 0.2]])
+# Pi = np.array([0.4, 0.6])
+# print(viterbi([0, 3, 1, 0], A, B, Pi))
+# Expected output: 1, 1, 1, 1
 
 
-hmmTagger.train(train_df)
-
+hmmTagger = hmm_tagger(train_df)
+hmmTagger.train()
+test_df = test_df[0:51]
 hmm_word_level_accuracy_test, hmm_sentence_level_accuracy_test = hmmTagger.evaluate(test_df)
-hmm_word_level_accuracy_dev, hmm_sentence_level_accuracy_dev = hmmTagger.evaluate(dev_df)
+# hmm_word_level_accuracy_dev, hmm_sentence_level_accuracy_dev = hmmTagger.evaluate(dev_df)
 
-print(f'*test* data: word accuracy = {hmm_word_level_accuracy_test} %, sentence accuracy = {hmm_sentence_level_accuracy_test} %')
-print(f'*dev* data: word accuracy = {hmm_word_level_accuracy_dev} %, sentence accuracy = {hmm_sentence_level_accuracy_dev} %')
+# print(f'*test* data: word accuracy = {hmm_word_level_accuracy_test} %, sentence accuracy = {hmm_sentence_level_accuracy_test} %')
+# print(f'*dev* data: word accuracy = {hmm_word_level_accuracy_dev} %, sentence accuracy = {hmm_sentence_level_accuracy_dev} %')
 
 
 
@@ -523,10 +624,37 @@ Compare the results obtained from both taggers and a MEMM tagger, implemented by
 
 from nltk.tag import tnt 
 
-tnt_pos_tagger = tnt.TnT()
-tnt_pos_tagger.train(train_data)
-print(tnt_pos_tagger.evaluate(test_data))
+# tnt_pos_tagger = tnt.TnT()
+# tnt_pos_tagger.train(train_data)
+# print(tnt_pos_tagger.evaluate(test_data))
 
 """Print both, word level and sentence level accuracy for all the three taggers in a table."""
 
 # Your code goes here
+
+observations = ("normal", "cold", "dizzy")
+states = ("Healthy", "Fever")
+start_p = {"Healthy": 0.6, "Fever": 0.4}
+trans_p = {
+    "Healthy": {"Healthy": 0.7, "Fever": 0.3},
+    "Fever": {"Healthy": 0.4, "Fever": 0.6},
+}
+emit_p = {
+    "Healthy": {"normal": 0.5, "cold": 0.4, "dizzy": 0.1},
+    "Fever": {"normal": 0.1, "cold": 0.3, "dizzy": 0.6},
+}
+
+
+ 
+     # for t in range(len(V) - 2, -1, -1):
+     #     opt.insert(0, V[t + 1][previous]["prev"])
+     #     previous = V[t + 1][previous]["prev"]
+  
+     # print ("The steps of states are " + " ".join(opt) + " with highest probability of %s" % max_prob)
+     # a=5
+viterbi_algorithm(observations, states, start_p, trans_p, emit_p)    
+
+
+
+
+
