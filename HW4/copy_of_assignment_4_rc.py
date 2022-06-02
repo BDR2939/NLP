@@ -266,11 +266,11 @@ tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 train_sequences = prepare_data(train, tokenizer)
 test_sequences = prepare_data(test, tokenizer)
 
-# """**Task 3:** In this part we classify the sentences using the BertForSequenceClassification model. To save resources, we initialize the optimizer with the final layer of the model. You are also allowed to change the learning rate."""
+"""**Task 3:** In this part we classify the sentences using the BertForSequenceClassification model. To save resources, we initialize the optimizer with the final layer of the model. You are also allowed to change the learning rate."""
 
-# def get_parameters(params):
-#   # TODO - your code...
-# model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+def get_parameters(params):
+  # TODO - your code...
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
 
 # # Optimizer (ADAM is a fancy version of SGD)
 # optimizer = torch.optim.Adam(get_parameters(model.named_parameters()), lr=0.0001)
