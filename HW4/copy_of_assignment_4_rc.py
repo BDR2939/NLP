@@ -10,9 +10,34 @@ Original file is located at
 Training a simple neural net for relation classification.
 """
 
+# -------------------------------------------------------------------------------
+# Imports 
+
+
+
 import torch
 import torch.nn as nn
-!pip install transformers
+import tensorflow as tf
+
+
+
+import numpy as np
+import math
+from tabulate import tabulate
+
+from sklearn.metrics import classification_report
+from transformers import get_linear_schedule_with_warmup
+from transformers import BertTokenizer
+from transformers import BertForSequenceClassification
+from transformers import AutoConfig, AutoModel
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+print(device)
+
+
+# -------------------------------------------------------------------------------
+
 
 """In this assignment you are required to build a full training and testing pipeline for a neural relation classification (RC), using BERT.
 
