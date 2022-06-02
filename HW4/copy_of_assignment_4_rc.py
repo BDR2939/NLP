@@ -245,6 +245,9 @@ def prepare_data(data, tokenizer, batch_size=8):
 
 
 def get_single_input(i_data, label_tuple_idx, labels_mapper, sentence_tuple_idx, tokenizer):
+    """
+    getting tuple size 3 base data item  (tensor input, mask tensor, label iteger)
+    """
     i_sentence = i_data[sentence_tuple_idx]
     i_label = i_data[label_tuple_idx]
     # do tokenization to the setnence
