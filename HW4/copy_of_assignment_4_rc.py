@@ -30,6 +30,7 @@ from transformers import get_linear_schedule_with_warmup
 from transformers import BertTokenizer
 from transformers import BertForSequenceClassification
 from transformers import AutoConfig, AutoModel
+from torchsummary import summary
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -267,10 +268,41 @@ train_sequences = prepare_data(train, tokenizer)
 test_sequences = prepare_data(test, tokenizer)
 
 """**Task 3:** In this part we classify the sentences using the BertForSequenceClassification model. To save resources, we initialize the optimizer with the final layer of the model. You are also allowed to change the learning rate."""
-
 def get_parameters(params):
+    """
+    Parameters
+    ----------
+    params : pythorch model.named_parameters()
+
+    Returns
+    -------
+    layers : TYPE
+        DESCRIPTION.
+
+    """
+
+
+
+    # initiate layers 
+    layers = []
+    # run on all model layers 
+    for name, param in params:
+        # set when on which layer needed to do backprop'
+        param.requires_grad = 'classifier' in name
+        # append layer
+        layers.append(param)
+        # print(name)
+
+    return layers
+        
+layers = get_parameters(model.named_parameters())
+
   # TODO - your code...
 model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+summary(model)
+
+# Optimizer (ADAM is a fancy version of SGD)
+optimizer = torch.optim.Adam(get_parameters(model.named_parameters()), lr=0.01)
 
 # # Optimizer (ADAM is a fancy version of SGD)
 # optimizer = torch.optim.Adam(get_parameters(model.named_parameters()), lr=0.0001)
