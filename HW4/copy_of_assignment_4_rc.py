@@ -280,9 +280,6 @@ def get_parameters(params):
         DESCRIPTION.
 
     """
-
-
-
     # initiate layers 
     layers = []
     # run on all model layers 
@@ -295,7 +292,7 @@ def get_parameters(params):
 
     return layers
         
-layers = get_parameters(model.named_parameters())
+# layers = get_parameters(model.named_parameters())
 
   # TODO - your code...
 model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
@@ -307,17 +304,124 @@ optimizer = torch.optim.Adam(get_parameters(model.named_parameters()), lr=0.01)
 # # Optimizer (ADAM is a fancy version of SGD)
 # optimizer = torch.optim.Adam(get_parameters(model.named_parameters()), lr=0.0001)
 
-# """**Task 4:** Write a training loop, which takes a BertForSequenceClassification model and number of epochs to train on. The loss is always CrossEntropyLoss and the optimizer is always Adam. You are allowed to split the train to train and dev sets."""
+"""**Task 4:** Write a training loop, which takes a BertForSequenceClassification model and number of epochs to train on. The loss is always CrossEntropyLoss and the optimizer is always Adam. You are allowed to split the train to train and dev sets."""
 
-# from transformers import BertForSequenceClassification
+from transformers import BertForSequenceClassification
 
-# model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
-# def train_loop(model, n_epochs, train_data, dev_data):
-#   # Loss function
-#   criterion = nn.CrossEntropyLoss()
- 
-#   for e in range(1, n_epochs + 1):
-#     # TODO - your code goes here...
+model = BertForSequenceClassification.from_pretrained('bert-base-uncased')
+optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+def get_model_results(model, test_sequences):
+    """
+    
+
+    Parameters
+    ----------
+    model : Torch model  - 
+        DESCRIPTION: LSTM model.
+    test_sequences : list
+        DESCRIPTION: input list of coupels [[word_tensor, lebel_tensor] , ...]
+    
+    the function get model results
+    
+    Returns
+    -------
+    all_test_words_pred : list
+    all_test_words_true : list
+    """
+    # generate test tokens prediction
+    all_test_words_pred = []
+    all_test_words_true = []
+
+    for sentence, labels in test_sequences:
+        sentence_tensor = torch.LongTensor(sentence).cuda()
+        labels_tensor = torch.LongTensor(labels).cuda()
+
+        _, pred_labels = model(sentence_tensor).T.max(0)
+
+        all_test_words_pred += pred_labels.tolist()
+        all_test_words_true += labels.tolist()
+
+    return all_test_words_pred, all_test_words_true
+
+def train_loop(model, n_epochs, train_data, dev_data):
+
+  update_lr_after_n_aphoc = 1  
+  alpha_zero = 1e-2
+  # Loss function
+  criterion = nn.CrossEntropyLoss()
+  
+  
+  curr_f1_accuracy_result = 0
+  best_f1_accuracy_result = 0
+  best_df = pd.DataFrame()
+    
+  for ephoc_index in range(1, n_epochs + 1):
+
+    desc = ('Ephoc #' + str(ephoc_index))
+    for sequence_idx in tqdm_notebook(range(train_data.__len__()), desc = desc):
+        
+        
+        # get sentence tokens, and labels 
+        input_ids_train ,train_attention_mask, train_labels = train_sequences[train_data]
+        if not dev_data is None:
+            dev_sentence ,dev_mask, dev_labels = train_sequences[dev_data]
+
+        # check if there is empty sentence
+        if train_labels.__len__() == 0:
+            continue
+        
+        # insert sentence tokens into tensor
+        input_ids_sentence_tensor_train = torch.LongTensor(input_ids_train).cuda()
+        
+        # insert sentence masks labels into tensor
+        attention_masks_tensor = torch.LongTensor(train_attention_mask).cuda()
+        
+        # insert sentence labels into tensor
+        labels_tensor = torch.LongTensor(train_labels).cuda()
+        
+        # Sets the gradients of all optimized to zero.
+        model.zero_grad()
+        
+        # foward sentence to model
+        logits = model(input_ids_sentence_tensor_train, attention_masks_tensor)
+        logits = logits['logits']
+        
+        # Computes the gradient of current tensor
+        criterion(logits, labels_tensor).backward()
+        
+        # Clip the norm of the gradients to 1.0 to prevent "exploding gradients"
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+
+        # once the gradients are computed use them to optimize model
+        optimizer.step()
+    
+    cos_inner = np.pi * (ephoc_index % (n_epochs // update_lr_after_n_aphoc))  
+    cos_inner /= T // M
+    cos_out = np.cos(cos_inner) + 1
+    new_lr = float(alpha_zero / 2 * cos_out) # needed to be seen
+    optimizer = torch.optim.Adam(model.parameters(), lr=new_lr)
+
+    
+    print('finshed ephoc #' + str(ephoc_index) + ', ephoch results:' , flush = True)
+    all_train_words_pred, all_train_words_true, \
+    binary_train_words_pred, binary_train_words_true =     (model, train_sequences)
+
+    
+    if curr_f1_accuracy_result > best_f1_accuracy_result:
+      improve_string = 'f1-accuracy-score improve from ' + str(best_f1_accuracy_result) + ' to ' + str(curr_f1_accuracy_result) 
+      best_f1_accuracy_result = curr_f1_accuracy_result
+      best_df = train_Results_df
+    else:
+      improve_string = 'f1-accuracy-score did not improve from ' + str(best_f1_accuracy_result)  
+    print(improve_string, flush = True)
+    
+    # TODO - your code goes here...
+
+
+
+model = train_loop(model, n_epochs=epochs, train_data=train_sequences, dev_data=None, lr = lr)
+
 
 # """**Task 5:** write an evaluation loop on a trained model, using the dev and test datasets. This function print the true positive rate (TPR), also known as Recall and the opposite to false positive rate (FPR), also known as precision, of each label seperately (10 labels in total), and for all labels together. The caption argument for the function should be served for printing, so that when you print include it as a prefix."""
 
